@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isBefore, startOfToday, isWeekend, parseISO, addMonths } from 'date-fns';
-import { ChevronLeft, ChevronRight, Clock, Waves, CheckCircle, Loader2, CreditCard } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Waves, CheckCircle, Loader2, CreditCard, FileText, Upload, Camera } from 'lucide-react';
 import { cn, formatTime } from '@/lib/utils';
+import SignaturePad from './SignaturePad';
+import WaiverText from './WaiverText';
 
 interface TimeSlot {
   id: string;
@@ -20,7 +22,7 @@ interface JetSki {
   status: string;
 }
 
-type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'confirm' | 'success';
+type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'waiver' | 'confirm' | 'success';
 
 export default function BookingWizard() {
   const [step, setStep] = useState<Step>('date');
@@ -39,6 +41,22 @@ export default function BookingWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [bookingResult, setBookingResult] = useState<{ id: string; date: string; startTime: string; totalPrice: number } | null>(null);
   const [error, setError] = useState('');
+
+  // Waiver state
+  const [waiverDOB, setWaiverDOB] = useState('');
+  const [waiverAddress, setWaiverAddress] = useState('');
+  const [waiverLicenseId, setWaiverLicenseId] = useState('');
+  const [waiverSignature, setWaiverSignature] = useState('');
+  const [waiverIdPhoto, setWaiverIdPhoto] = useState('');
+  const [waiverPhotoOptOut, setWaiverPhotoOptOut] = useState(false);
+  const [waiverIsMinor, setWaiverIsMinor] = useState(false);
+  const [waiverMinorName, setWaiverMinorName] = useState('');
+  const [waiverMinorAge, setWaiverMinorAge] = useState('');
+  const [waiverGuardianSignature, setWaiverGuardianSignature] = useState('');
+  const [waiverGuardianName, setWaiverGuardianName] = useState('');
+  const [waiverScrolledToBottom, setWaiverScrolledToBottom] = useState(false);
+  const waiverScrollRef = useRef<HTMLDivElement>(null);
+  const idInputRef = useRef<HTMLInputElement>(null);
 
   // Load inventory data
   useEffect(() => {
@@ -69,6 +87,33 @@ export default function BookingWizard() {
     return isWeekend(parseISO(selectedDate)) ? selectedSlot.weekendPrice : selectedSlot.weekdayPrice;
   };
 
+  const handleIdPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setWaiverIdPhoto(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleWaiverScroll = () => {
+    const el = waiverScrollRef.current;
+    if (!el) return;
+    const threshold = 50;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < threshold) {
+      setWaiverScrolledToBottom(true);
+    }
+  };
+
+  const isWaiverComplete = () => {
+    const base = waiverDOB && waiverAddress && waiverLicenseId && waiverSignature && waiverIdPhoto;
+    if (waiverIsMinor) {
+      return base && waiverMinorName && waiverMinorAge && waiverGuardianSignature && waiverGuardianName;
+    }
+    return base;
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setError('');
@@ -84,6 +129,20 @@ export default function BookingWizard() {
           customerName,
           customerEmail,
           customerPhone,
+          waiver: {
+            participantDOB: waiverDOB,
+            participantAddress: waiverAddress,
+            driversLicenseId: waiverLicenseId,
+            signatureDataUrl: waiverSignature,
+            idPhotoDataUrl: waiverIdPhoto,
+            photoVideoOptOut: waiverPhotoOptOut,
+            isMinor: waiverIsMinor,
+            minorName: waiverIsMinor ? waiverMinorName : undefined,
+            minorAge: waiverIsMinor ? waiverMinorAge : undefined,
+            guardianSignatureDataUrl: waiverIsMinor ? waiverGuardianSignature : undefined,
+            guardianName: waiverIsMinor ? waiverGuardianName : undefined,
+            signedAt: new Date().toISOString(),
+          },
         }),
       });
       const data = await res.json();
@@ -109,10 +168,13 @@ export default function BookingWizard() {
     { key: 'jetski', label: 'Jet Ski' },
     { key: 'time', label: 'Time' },
     { key: 'details', label: 'Details' },
+    { key: 'waiver', label: 'Waiver' },
     { key: 'confirm', label: 'Confirm' },
   ];
 
   const currentStepIndex = steps.findIndex(s => s.key === step);
+
+  const inputClass = "w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all text-brand-900";
 
   return (
     <div className="card p-6 md:p-8">
@@ -124,16 +186,16 @@ export default function BookingWizard() {
               <div className="flex flex-col items-center">
                 <div
                   className={cn(
-                    'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all',
+                    'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all',
                     i < currentStepIndex && 'bg-green-500 text-white',
                     i === currentStepIndex && 'bg-brand-600 text-white shadow-lg shadow-brand-200',
                     i > currentStepIndex && 'bg-gray-100 text-gray-400'
                   )}
                 >
-                  {i < currentStepIndex ? <CheckCircle className="w-4 h-4" /> : i + 1}
+                  {i < currentStepIndex ? <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : i + 1}
                 </div>
                 <span className={cn(
-                  'text-[10px] mt-1 font-medium whitespace-nowrap',
+                  'text-[9px] sm:text-[10px] mt-1 font-medium whitespace-nowrap',
                   i <= currentStepIndex ? 'text-brand-700' : 'text-gray-400'
                 )}>
                   {s.label}
@@ -141,7 +203,7 @@ export default function BookingWizard() {
               </div>
               {i < steps.length - 1 && (
                 <div className={cn(
-                  'w-8 sm:w-16 h-0.5 mx-1 sm:mx-2 mt-[-14px]',
+                  'w-4 sm:w-12 h-0.5 mx-0.5 sm:mx-1.5 mt-[-14px]',
                   i < currentStepIndex ? 'bg-green-400' : 'bg-gray-200'
                 )} />
               )}
@@ -399,41 +461,174 @@ export default function BookingWizard() {
           <div className="max-w-md mx-auto space-y-4">
             <div>
               <label className="block text-sm font-medium text-brand-800 mb-1.5">Full Name *</label>
-              <input
-                type="text"
-                value={customerName}
-                onChange={e => setCustomerName(e.target.value)}
-                placeholder="John Smith"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all text-brand-900"
-              />
+              <input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="John Smith" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-brand-800 mb-1.5">Email Address *</label>
-              <input
-                type="email"
-                value={customerEmail}
-                onChange={e => setCustomerEmail(e.target.value)}
-                placeholder="john@example.com"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all text-brand-900"
-              />
+              <input type="email" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} placeholder="john@example.com" className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-brand-800 mb-1.5">Phone Number</label>
-              <input
-                type="tel"
-                value={customerPhone}
-                onChange={e => setCustomerPhone(e.target.value)}
-                placeholder="(555) 000-0000"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all text-brand-900"
-              />
+              <label className="block text-sm font-medium text-brand-800 mb-1.5">Phone Number *</label>
+              <input type="tel" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="(555) 000-0000" className={inputClass} />
             </div>
           </div>
 
           <div className="flex justify-between mt-8">
             <button onClick={() => setStep('time')} className="btn-secondary">Back</button>
             <button
+              onClick={() => { setWaiverScrolledToBottom(false); setStep('waiver'); }}
+              disabled={!customerName || !customerEmail || !customerPhone}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continue to Waiver
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Waiver */}
+      {step === 'waiver' && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-5 h-5 text-red-500" />
+            <h3 className="text-xl font-bold text-brand-900">Liability Waiver</h3>
+          </div>
+          <p className="text-sm text-brand-600/60 mb-4">
+            Please read the waiver carefully, scroll to the bottom, then fill in your details and sign.
+          </p>
+
+          {/* Scrollable waiver text */}
+          <div
+            ref={waiverScrollRef}
+            onScroll={handleWaiverScroll}
+            className="h-64 overflow-y-auto border border-gray-200 rounded-xl p-4 mb-6 bg-gray-50/50"
+          >
+            <WaiverText />
+          </div>
+
+          {!waiverScrolledToBottom && (
+            <p className="text-xs text-amber-600 font-medium mb-4 text-center">
+              Please scroll to the bottom of the waiver to continue
+            </p>
+          )}
+
+          {waiverScrolledToBottom && (
+            <div className="space-y-5 max-w-lg mx-auto">
+              {/* Participant Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-brand-800 mb-1.5">Date of Birth *</label>
+                  <input type="date" value={waiverDOB} onChange={e => setWaiverDOB(e.target.value)} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-brand-800 mb-1.5">Driver&apos;s License / ID # *</label>
+                  <input type="text" value={waiverLicenseId} onChange={e => setWaiverLicenseId(e.target.value)} placeholder="DL-XXXXXXX" className={inputClass} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-brand-800 mb-1.5">Address *</label>
+                <input type="text" value={waiverAddress} onChange={e => setWaiverAddress(e.target.value)} placeholder="123 Main St, City, State ZIP" className={inputClass} />
+              </div>
+
+              {/* ID Photo Upload */}
+              <div>
+                <label className="block text-sm font-medium text-brand-800 mb-1.5">Upload Photo of ID *</label>
+                <input
+                  ref={idInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleIdPhotoUpload}
+                  className="hidden"
+                />
+                {waiverIdPhoto ? (
+                  <div className="relative">
+                    <img src={waiverIdPhoto} alt="ID Photo" className="w-full h-32 object-cover rounded-xl border border-green-300" />
+                    <button
+                      onClick={() => { setWaiverIdPhoto(''); if (idInputRef.current) idInputRef.current.value = ''; }}
+                      className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-lg"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => idInputRef.current?.click()}
+                    className="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center gap-2 hover:border-brand-400 hover:bg-brand-50/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Camera className="w-6 h-6 text-gray-400" />
+                      <Upload className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <span className="text-sm text-gray-500">Tap to take photo or upload</span>
+                    <span className="text-xs text-gray-400">Driver&apos;s license or government-issued ID</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Photo/Video Opt Out */}
+              <label className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={waiverPhotoOptOut}
+                  onChange={e => setWaiverPhotoOptOut(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 text-brand-600 rounded"
+                />
+                <div>
+                  <span className="text-sm font-medium text-brand-800">Opt out of photo/video use</span>
+                  <p className="text-xs text-gray-500 mt-0.5">Check this if you do NOT want your photos/videos used for marketing.</p>
+                </div>
+              </label>
+
+              {/* Minor section */}
+              <label className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={waiverIsMinor}
+                  onChange={e => setWaiverIsMinor(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 text-brand-600 rounded"
+                />
+                <div>
+                  <span className="text-sm font-medium text-brand-800">Signing for a minor (under 18)</span>
+                  <p className="text-xs text-gray-500 mt-0.5">Check this if the rider is under 18 years old.</p>
+                </div>
+              </label>
+
+              {waiverIsMinor && (
+                <div className="space-y-4 p-4 bg-amber-50/50 rounded-xl border border-amber-200">
+                  <h4 className="font-semibold text-brand-900 text-sm">Minor Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-brand-800 mb-1.5">Minor&apos;s Name *</label>
+                      <input type="text" value={waiverMinorName} onChange={e => setWaiverMinorName(e.target.value)} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-brand-800 mb-1.5">Minor&apos;s Age *</label>
+                      <input type="number" value={waiverMinorAge} onChange={e => setWaiverMinorAge(e.target.value)} className={inputClass} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-brand-800 mb-1.5">Parent/Guardian Name *</label>
+                    <input type="text" value={waiverGuardianName} onChange={e => setWaiverGuardianName(e.target.value)} className={inputClass} />
+                  </div>
+                  <SignaturePad label="Parent/Guardian Signature *" onSignatureChange={setWaiverGuardianSignature} />
+                </div>
+              )}
+
+              {/* Main Signature */}
+              <SignaturePad label="Your Signature *" onSignatureChange={setWaiverSignature} />
+
+              <p className="text-xs text-gray-500 text-center">
+                By signing above, I acknowledge that I have read and understood the entire waiver, and I voluntarily agree to all terms.
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-between mt-8">
+            <button onClick={() => setStep('details')} className="btn-secondary">Back</button>
+            <button
               onClick={() => setStep('confirm')}
-              disabled={!customerName || !customerEmail}
+              disabled={!waiverScrolledToBottom || !isWaiverComplete()}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Review Booking
@@ -474,18 +669,11 @@ export default function BookingWizard() {
             </div>
             <div className="border-t border-brand-100" />
             <div className="flex justify-between items-center">
-              <span className="text-sm text-brand-600/60">Email</span>
-              <span className="font-semibold text-brand-900">{customerEmail}</span>
+              <span className="text-sm text-brand-600/60">Waiver</span>
+              <span className="font-semibold text-green-600 flex items-center gap-1">
+                <CheckCircle className="w-4 h-4" /> Signed
+              </span>
             </div>
-            {customerPhone && (
-              <>
-                <div className="border-t border-brand-100" />
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-brand-600/60">Phone</span>
-                  <span className="font-semibold text-brand-900">{customerPhone}</span>
-                </div>
-              </>
-            )}
             <div className="border-t-2 border-brand-200 pt-2" />
             <div className="flex justify-between items-center">
               <span className="font-bold text-brand-900">Total</span>
@@ -504,7 +692,7 @@ export default function BookingWizard() {
           </p>
 
           <div className="flex justify-between mt-8">
-            <button onClick={() => setStep('details')} className="btn-secondary" disabled={submitting}>Back</button>
+            <button onClick={() => setStep('waiver')} className="btn-secondary" disabled={submitting}>Back</button>
             <button
               onClick={handleSubmit}
               disabled={submitting}
@@ -554,6 +742,10 @@ export default function BookingWizard() {
             <div className="flex justify-between">
               <span className="text-sm text-brand-600/60">Total</span>
               <span className="font-bold text-brand-600">${bookingResult.totalPrice}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-brand-600/60">Waiver</span>
+              <span className="font-semibold text-green-600">Signed</span>
             </div>
           </div>
 

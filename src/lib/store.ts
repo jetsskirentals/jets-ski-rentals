@@ -17,6 +17,21 @@ export interface TimeSlot {
   weekendPrice: number;
 }
 
+export interface WaiverData {
+  participantDOB: string;
+  participantAddress: string;
+  driversLicenseId: string;
+  signatureDataUrl: string;
+  idPhotoDataUrl: string;
+  photoVideoOptOut: boolean;
+  isMinor: boolean;
+  minorName?: string;
+  minorAge?: string;
+  guardianSignatureDataUrl?: string;
+  guardianName?: string;
+  signedAt: string;
+}
+
 export interface Booking {
   id: string;
   jetSkiId: string;
@@ -30,6 +45,7 @@ export interface Booking {
   status: 'confirmed' | 'cancelled' | 'completed';
   createdAt: string;
   isManual: boolean;
+  waiver?: WaiverData;
 }
 
 export interface Review {

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { jetSkiId, date, timeSlotId, startTime, customerName, customerEmail, customerPhone, isManual } = body;
+  const { jetSkiId, date, timeSlotId, startTime, customerName, customerEmail, customerPhone, isManual, waiver } = body;
 
   // Validate
   if (!jetSkiId || !date || !timeSlotId || !startTime || !customerName || !customerEmail) {
@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     status: 'confirmed',
     createdAt: new Date().toISOString(),
     isManual: isManual || false,
+    waiver: waiver || undefined,
   };
 
   store.bookings.push(booking);
