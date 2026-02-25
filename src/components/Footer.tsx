@@ -42,11 +42,11 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-brand-400 shrink-0" />
-                (555) 123-4567
+                (850) 276-6063
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-brand-400 shrink-0" />
-                info@jetsskirentals.com
+                info@getwetwithjet.com
               </li>
             </ul>
           </div>

@@ -119,9 +119,9 @@ const defaultReviews: Review[] = [
 
 const defaultSettings: Settings = {
   businessName: "Jet's Ski Rentals",
-  businessPhone: '(555) 123-4567',
-  businessEmail: 'info@jetsskirentals.com',
-  businessAddress: '123 Beach Blvd, Coastal City, FL 33000',
+  businessPhone: '(850) 276-6063',
+  businessEmail: 'info@getwetwithjet.com',
+  businessAddress: 'Coastal Florida',
   operatingHoursStart: '09:00',
   operatingHoursEnd: '18:00',
 };

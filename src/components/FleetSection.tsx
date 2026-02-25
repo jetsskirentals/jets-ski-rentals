@@ -1,4 +1,4 @@
-import { Waves } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 const jetSkis = [
@@ -6,15 +6,15 @@ const jetSkis = [
     name: 'Wave Runner 1',
     model: 'Yamaha EX Sport',
     description: 'Perfect for beginners and families. Stable, easy to handle, and a blast on the water!',
-    features: ['Beginner Friendly', 'Seats 1-2', 'Smooth Ride'],
-    color: 'from-brand-500 to-ocean-600',
+    features: ['Beginner Friendly', 'Seats 1-3', 'Smooth Ride'],
+    image: '/jetskis-fleet.jpeg',
   },
   {
     name: 'Wave Runner 2',
-    model: 'Sea-Doo Spark',
-    description: 'Lightweight and agile, great for thrill-seekers who love speed and tight turns.',
-    features: ['High Performance', 'Seats 1-2', 'Agile Handling'],
-    color: 'from-ocean-500 to-brand-600',
+    model: 'Yamaha EX Sport',
+    description: 'Same great ride, double the fun! Bring a friend and race across the water.',
+    features: ['Beginner Friendly', 'Seats 1-3', 'Smooth Ride'],
+    image: '/jetski-action1.jpeg',
   },
 ];
 
@@ -25,19 +25,38 @@ export default function FleetSection() {
         <div className="text-center mb-16">
           <h2 className="section-heading mb-4">Our Fleet</h2>
           <p className="section-subheading">
-            Two top-quality jet skis ready to take you on an adventure.
+            Two Yamaha EX Sport WaveRunners ready to take you on an adventure.
           </p>
+        </div>
+
+        {/* Full-width action photo */}
+        <div className="relative h-64 md:h-80 rounded-2xl overflow-hidden mb-10 max-w-4xl mx-auto">
+          <Image
+            src="/jetskis-fleet.jpeg"
+            alt="Our two Yamaha EX Sport jet skis"
+            fill
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          <div className="absolute bottom-4 left-4 md:bottom-6 md:left-6">
+            <span className="text-white font-bold text-lg md:text-xl">Both WaveRunners Ready to Ride</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {jetSkis.map((ski) => (
             <div key={ski.name} className="card group hover:shadow-xl transition-shadow duration-300">
-              {/* Jet ski visual */}
-              <div className={`relative h-48 bg-gradient-to-br ${ski.color} flex items-center justify-center`}>
-                <Waves className="w-24 h-24 text-white/30" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              {/* Jet ski image */}
+              <div className="relative h-48 overflow-hidden">
+                <Image
+                  src={ski.image}
+                  alt={ski.name}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4">
-                  <span className="text-xs font-semibold text-white/80 uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-white/90 uppercase tracking-wider bg-black/30 backdrop-blur-sm px-2 py-1 rounded">
                     {ski.model}
                   </span>
                 </div>

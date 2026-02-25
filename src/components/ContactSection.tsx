@@ -30,7 +30,7 @@ export default function ContactSection() {
               </div>
               <div>
                 <h4 className="font-semibold text-brand-900 mb-1">Phone</h4>
-                <p className="text-sm text-brand-700/60">(555) 123-4567</p>
+                <p className="text-sm text-brand-700/60">(850) 276-6063</p>
               </div>
             </div>
 
@@ -40,7 +40,7 @@ export default function ContactSection() {
               </div>
               <div>
                 <h4 className="font-semibold text-brand-900 mb-1">Email</h4>
-                <p className="text-sm text-brand-700/60">info@jetsskirentals.com</p>
+                <p className="text-sm text-brand-700/60">info@getwetwithjet.com</p>
               </div>
             </div>
 
