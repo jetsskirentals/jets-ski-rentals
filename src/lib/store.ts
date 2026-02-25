@@ -46,7 +46,7 @@ export interface Booking {
   customerEmail: string;
   customerPhone: string;
   totalPrice: number;
-  status: 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   createdAt: string;
   isManual: boolean;
   waiver?: WaiverData;

@@ -149,39 +149,49 @@ export default function BookingWizard() {
     setSubmitting(true);
     setError('');
     try {
-      const res = await fetch('/api/bookings', {
+      const bookingPayload = {
+        jetSkiId: selectedJetSki!.id,
+        date: selectedDate,
+        timeSlotId: selectedSlot!.id,
+        startTime: selectedTime,
+        customerName,
+        customerEmail,
+        customerPhone,
+        waiver: {
+          participantDOB: waiverDOB,
+          participantAddress: waiverAddress,
+          driversLicenseId: waiverLicenseId,
+          signatureDataUrl: waiverSignature,
+          idPhotoDataUrl: waiverIdPhoto,
+          boaterIdPhotoDataUrl: waiverBoaterIdPhoto,
+          liabilityVideoDataUrl: waiverLiabilityVideo,
+          safetyBriefingSignatureDataUrl: safetySignature,
+          safetyBriefingSignedAt: new Date().toISOString(),
+          photoVideoOptOut: waiverPhotoOptOut,
+          isMinor: waiverIsMinor,
+          minorName: waiverIsMinor ? waiverMinorName : undefined,
+          minorAge: waiverIsMinor ? waiverMinorAge : undefined,
+          guardianSignatureDataUrl: waiverIsMinor ? waiverGuardianSignature : undefined,
+          guardianName: waiverIsMinor ? waiverGuardianName : undefined,
+          signedAt: new Date().toISOString(),
+        },
+      };
+
+      const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jetSkiId: selectedJetSki!.id,
-          date: selectedDate,
-          timeSlotId: selectedSlot!.id,
-          startTime: selectedTime,
-          customerName,
-          customerEmail,
-          customerPhone,
-          waiver: {
-            participantDOB: waiverDOB,
-            participantAddress: waiverAddress,
-            driversLicenseId: waiverLicenseId,
-            signatureDataUrl: waiverSignature,
-            idPhotoDataUrl: waiverIdPhoto,
-            boaterIdPhotoDataUrl: waiverBoaterIdPhoto,
-            liabilityVideoDataUrl: waiverLiabilityVideo,
-            safetyBriefingSignatureDataUrl: safetySignature,
-            safetyBriefingSignedAt: new Date().toISOString(),
-            photoVideoOptOut: waiverPhotoOptOut,
-            isMinor: waiverIsMinor,
-            minorName: waiverIsMinor ? waiverMinorName : undefined,
-            minorAge: waiverIsMinor ? waiverMinorAge : undefined,
-            guardianSignatureDataUrl: waiverIsMinor ? waiverGuardianSignature : undefined,
-            guardianName: waiverIsMinor ? waiverGuardianName : undefined,
-            signedAt: new Date().toISOString(),
-          },
-        }),
+        body: JSON.stringify(bookingPayload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      // If Stripe checkout URL is returned, redirect to payment
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return; // Don't setSubmitting(false) — we're navigating away
+      }
+
+      // No-payment mode (Stripe not configured) — show success inline
       setBookingResult(data.booking);
       setStep('success');
     } catch (e: unknown) {
@@ -827,7 +837,7 @@ export default function BookingWizard() {
           )}
 
           <p className="text-xs text-brand-600/40 text-center mt-4">
-            Payment will be collected at the location. This reserves your time slot.
+            You&apos;ll be redirected to our secure payment page to complete your booking.
           </p>
 
           <div className="flex justify-between mt-8">
@@ -845,7 +855,7 @@ export default function BookingWizard() {
               ) : (
                 <>
                   <CreditCard className="w-4 h-4" />
-                  Confirm Booking
+                  Pay & Confirm Booking
                 </>
               )}
             </button>

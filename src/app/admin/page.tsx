@@ -374,6 +374,7 @@ export default function AdminPage() {
                               {b.isManual && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Walk-in</span>}
                               <span className={cn(
                                 'text-[10px] font-bold px-1.5 py-0.5 rounded',
+                                b.status === 'pending' && 'bg-orange-100 text-orange-700',
                                 b.status === 'confirmed' && 'bg-green-100 text-green-700',
                                 b.status === 'cancelled' && 'bg-red-100 text-red-700',
                                 b.status === 'completed' && 'bg-blue-100 text-blue-700',
