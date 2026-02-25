@@ -4,17 +4,31 @@ import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   LayoutDashboard, CalendarDays, DollarSign, Star, Settings, Plus,
-  Waves, Users, Loader2, Trash2, Edit3, Save, X
+  Waves, Users, Loader2, Trash2, Edit3, Save, X, FileCheck, Eye, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { cn, formatTime } from '@/lib/utils';
 
 type Tab = 'overview' | 'bookings' | 'inventory' | 'reviews' | 'settings';
 
+interface WaiverData {
+  participantDOB: string;
+  participantAddress: string;
+  driversLicenseId: string;
+  signatureDataUrl: string;
+  idPhotoDataUrl: string;
+  photoVideoOptOut: boolean;
+  isMinor: boolean;
+  minorName?: string;
+  minorAge?: string;
+  guardianSignatureDataUrl?: string;
+  guardianName?: string;
+  signedAt: string;
+}
 interface Booking {
   id: string; jetSkiId: string; date: string; timeSlotId: string;
   startTime: string; customerName: string; customerEmail: string;
   customerPhone: string; totalPrice: number; status: string;
-  createdAt: string; isManual: boolean;
+  createdAt: string; isManual: boolean; waiver?: WaiverData;
 }
 interface TimeSlot {
   id: string; label: string; durationMinutes: number;
@@ -66,6 +80,9 @@ export default function AdminPage() {
   // Settings edit
   const [editSettings, setEditSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState<SettingsData | null>(null);
+
+  // Waiver viewer
+  const [expandedWaivers, setExpandedWaivers] = useState<Set<string>>(new Set());
 
   const fetchAll = async () => {
     setLoading(true);
@@ -263,7 +280,7 @@ export default function AdminPage() {
                   { label: 'Today\'s Bookings', value: todayBookings.length, icon: CalendarDays, color: 'text-brand-600 bg-brand-50' },
                   { label: 'Total Active', value: activeBookings.length, icon: Users, color: 'text-ocean-600 bg-ocean-50' },
                   { label: 'Total Revenue', value: `$${revenue}`, icon: DollarSign, color: 'text-green-600 bg-green-50' },
-                  { label: 'Avg Rating', value: reviews.length ? (reviews.filter(r => r.approved).reduce((s, r) => s + r.rating, 0) / reviews.filter(r => r.approved).length).toFixed(1) : 'N/A', icon: Star, color: 'text-yellow-600 bg-yellow-50' },
+                  { label: 'Signed Waivers', value: bookings.filter(b => b.waiver).length, icon: FileCheck, color: 'text-purple-600 bg-purple-50' },
                 ].map(stat => (
                   <div key={stat.label} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
                     <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center mb-3', stat.color)}>
@@ -340,37 +357,131 @@ export default function AdminPage() {
                   {[...bookings].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(b => {
                     const jetSki = jetSkis.find(js => js.id === b.jetSkiId);
                     const slot = timeSlots.find(ts => ts.id === b.timeSlotId);
+                    const isExpanded = expandedWaivers.has(b.id);
                     return (
                       <div key={b.id} className={cn(
-                        'bg-white rounded-lg p-4 border flex flex-col sm:flex-row sm:items-center justify-between gap-3',
+                        'bg-white rounded-lg border',
                         b.status === 'cancelled' ? 'border-red-100 opacity-60' : 'border-gray-100'
                       )}>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900">{b.customerName}</span>
-                            {b.isManual && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Walk-in</span>}
-                            <span className={cn(
-                              'text-[10px] font-bold px-1.5 py-0.5 rounded',
-                              b.status === 'confirmed' && 'bg-green-100 text-green-700',
-                              b.status === 'cancelled' && 'bg-red-100 text-red-700',
-                              b.status === 'completed' && 'bg-blue-100 text-blue-700',
-                            )}>
-                              {b.status.toUpperCase()}
-                            </span>
+                        <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-gray-900">{b.customerName}</span>
+                              {b.isManual && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Walk-in</span>}
+                              <span className={cn(
+                                'text-[10px] font-bold px-1.5 py-0.5 rounded',
+                                b.status === 'confirmed' && 'bg-green-100 text-green-700',
+                                b.status === 'cancelled' && 'bg-red-100 text-red-700',
+                                b.status === 'completed' && 'bg-blue-100 text-blue-700',
+                              )}>
+                                {b.status.toUpperCase()}
+                              </span>
+                              {b.waiver ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex items-center gap-0.5">
+                                  <FileCheck className="w-3 h-3" /> WAIVER SIGNED
+                                </span>
+                              ) : (
+                                !b.isManual && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">NO WAIVER</span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {format(parseISO(b.date), 'MMM d, yyyy')} at {formatTime(b.startTime)} &middot; {slot?.label} &middot; {jetSki?.name}
+                            </div>
+                            <div className="text-xs text-gray-400">{b.customerEmail} {b.customerPhone && `| ${b.customerPhone}`}</div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {format(parseISO(b.date), 'MMM d, yyyy')} at {formatTime(b.startTime)} &middot; {slot?.label} &middot; {jetSki?.name}
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-brand-600">${b.totalPrice}</span>
+                            {b.waiver && (
+                              <button
+                                onClick={() => {
+                                  const next = new Set(expandedWaivers);
+                                  if (isExpanded) next.delete(b.id); else next.add(b.id);
+                                  setExpandedWaivers(next);
+                                }}
+                                className="text-purple-600 hover:text-purple-800 text-xs font-medium flex items-center gap-1"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                {isExpanded ? 'Hide' : 'Waiver'}
+                                {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              </button>
+                            )}
+                            {b.status === 'confirmed' && (
+                              <button onClick={() => cancelBooking(b.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">
+                                Cancel
+                              </button>
+                            )}
                           </div>
-                          <div className="text-xs text-gray-400">{b.customerEmail} {b.customerPhone && `| ${b.customerPhone}`}</div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-brand-600">${b.totalPrice}</span>
-                          {b.status === 'confirmed' && (
-                            <button onClick={() => cancelBooking(b.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">
-                              Cancel
-                            </button>
-                          )}
-                        </div>
+
+                        {/* Expanded waiver details */}
+                        {isExpanded && b.waiver && (
+                          <div className="border-t border-gray-100 bg-purple-50/30 p-4">
+                            <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-1.5">
+                              <FileCheck className="w-4 h-4" /> Signed Waiver Details
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-500 block text-xs mb-0.5">Date of Birth</span>
+                                <span className="text-gray-900 font-medium">{b.waiver.participantDOB}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 block text-xs mb-0.5">Address</span>
+                                <span className="text-gray-900 font-medium">{b.waiver.participantAddress}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 block text-xs mb-0.5">Driver&apos;s License</span>
+                                <span className="text-gray-900 font-medium">{b.waiver.driversLicenseId}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 block text-xs mb-0.5">Signed At</span>
+                                <span className="text-gray-900 font-medium">{new Date(b.waiver.signedAt).toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 block text-xs mb-0.5">Photo/Video Opt-Out</span>
+                                <span className="text-gray-900 font-medium">{b.waiver.photoVideoOptOut ? 'Yes — opted out' : 'No — consented'}</span>
+                              </div>
+                              {b.waiver.isMinor && (
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-0.5">Minor Participant</span>
+                                  <span className="text-gray-900 font-medium">{b.waiver.minorName}, age {b.waiver.minorAge} (Guardian: {b.waiver.guardianName})</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Signature and ID photo */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                              <div>
+                                <span className="text-gray-500 block text-xs mb-1.5">Signature</span>
+                                <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                  {b.waiver.signatureDataUrl
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    ? <img src={b.waiver.signatureDataUrl} alt="Customer signature" className="h-20 w-auto" />
+                                    : <span className="text-gray-400 text-xs">No signature captured</span>
+                                  }
+                                </div>
+                              </div>
+                              {b.waiver.guardianSignatureDataUrl && (
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-1.5">Guardian Signature</span>
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={b.waiver.guardianSignatureDataUrl} alt="Guardian signature" className="h-20 w-auto" />
+                                  </div>
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-gray-500 block text-xs mb-1.5">ID Photo</span>
+                                <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                  {b.waiver.idPhotoDataUrl
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    ? <img src={b.waiver.idPhotoDataUrl} alt="Customer ID" className="h-32 w-auto rounded" />
+                                    : <span className="text-gray-400 text-xs">No ID photo uploaded</span>
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
