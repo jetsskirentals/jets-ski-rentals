@@ -18,6 +18,8 @@ interface WaiverData {
   idPhotoDataUrl: string;
   boaterIdPhotoDataUrl?: string;
   liabilityVideoDataUrl?: string;
+  safetyBriefingSignatureDataUrl?: string;
+  safetyBriefingSignedAt?: string;
   photoVideoOptOut: boolean;
   isMinor: boolean;
   minorName?: string;
@@ -491,6 +493,22 @@ export default function AdminPage() {
                                 </div>
                               )}
                             </div>
+
+                            {/* Safety Briefing */}
+                            {b.waiver.safetyBriefingSignatureDataUrl && (
+                              <div className="mt-4">
+                                <span className="text-gray-500 block text-xs mb-1.5">Safety Briefing Acknowledgment</span>
+                                <div className="flex items-center gap-4">
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={b.waiver.safetyBriefingSignatureDataUrl} alt="Safety briefing signature" className="h-16 w-auto" />
+                                  </div>
+                                  {b.waiver.safetyBriefingSignedAt && (
+                                    <span className="text-xs text-gray-500">Signed: {new Date(b.waiver.safetyBriefingSignedAt).toLocaleString()}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
                             {/* Liability Video */}
                             {b.waiver.liabilityVideoDataUrl && (

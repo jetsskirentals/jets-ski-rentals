@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isBefore, startOfToday, isWeekend, parseISO, addMonths } from 'date-fns';
-import { ChevronLeft, ChevronRight, Clock, Waves, CheckCircle, Loader2, CreditCard, FileText, Upload, Camera, Anchor } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Waves, CheckCircle, Loader2, CreditCard, FileText, Upload, Camera, Anchor, ShieldCheck } from 'lucide-react';
 import { cn, formatTime } from '@/lib/utils';
 import SignaturePad from './SignaturePad';
 import WaiverText from './WaiverText';
+import SafetyBriefingText from './SafetyBriefingText';
 import VideoRecorder from './VideoRecorder';
 
 const LIABILITY_STATEMENT = "My name is _______. Today is _______. I am voluntarily renting and operating this jet ski. I confirm I received the safety briefing, understand the risks of injury or death, and will follow all rules and Florida boating laws. I accept full responsibility for myself and my passengers, assume all risks, and release the rental company and its employees from liability.";
@@ -25,7 +26,7 @@ interface JetSki {
   status: string;
 }
 
-type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'waiver' | 'confirm' | 'success';
+type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'waiver' | 'safety' | 'confirm' | 'success';
 
 export default function BookingWizard() {
   const [step, setStep] = useState<Step>('date');
@@ -63,6 +64,11 @@ export default function BookingWizard() {
   const waiverScrollRef = useRef<HTMLDivElement>(null);
   const idInputRef = useRef<HTMLInputElement>(null);
   const boaterIdInputRef = useRef<HTMLInputElement>(null);
+
+  // Safety briefing state
+  const [safetyScrolledToBottom, setSafetyScrolledToBottom] = useState(false);
+  const [safetySignature, setSafetySignature] = useState('');
+  const safetyScrollRef = useRef<HTMLDivElement>(null);
 
   // Load inventory data
   useEffect(() => {
@@ -122,6 +128,15 @@ export default function BookingWizard() {
     }
   };
 
+  const handleSafetyScroll = () => {
+    const el = safetyScrollRef.current;
+    if (!el) return;
+    const threshold = 50;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < threshold) {
+      setSafetyScrolledToBottom(true);
+    }
+  };
+
   const isWaiverComplete = () => {
     const base = waiverDOB && waiverAddress && waiverLicenseId && waiverSignature && waiverIdPhoto && waiverBoaterIdPhoto && waiverLiabilityVideo;
     if (waiverIsMinor) {
@@ -153,6 +168,8 @@ export default function BookingWizard() {
             idPhotoDataUrl: waiverIdPhoto,
             boaterIdPhotoDataUrl: waiverBoaterIdPhoto,
             liabilityVideoDataUrl: waiverLiabilityVideo,
+            safetyBriefingSignatureDataUrl: safetySignature,
+            safetyBriefingSignedAt: new Date().toISOString(),
             photoVideoOptOut: waiverPhotoOptOut,
             isMinor: waiverIsMinor,
             minorName: waiverIsMinor ? waiverMinorName : undefined,
@@ -187,6 +204,7 @@ export default function BookingWizard() {
     { key: 'time', label: 'Time' },
     { key: 'details', label: 'Details' },
     { key: 'waiver', label: 'Waiver' },
+    { key: 'safety', label: 'Safety' },
     { key: 'confirm', label: 'Confirm' },
   ];
 
@@ -693,8 +711,56 @@ export default function BookingWizard() {
           <div className="flex justify-between mt-8">
             <button onClick={() => setStep('details')} className="btn-secondary">Back</button>
             <button
-              onClick={() => setStep('confirm')}
+              onClick={() => { setSafetyScrolledToBottom(false); setStep('safety'); }}
               disabled={!waiverScrolledToBottom || !isWaiverComplete()}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continue to Safety Briefing
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Safety Briefing */}
+      {step === 'safety' && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck className="w-5 h-5 text-green-600" />
+            <h3 className="text-xl font-bold text-brand-900">Safety Briefing Confirmation</h3>
+          </div>
+          <p className="text-sm text-brand-600/60 mb-4">
+            Please read the safety briefing carefully, scroll to the bottom, then sign to acknowledge.
+          </p>
+
+          {/* Scrollable safety briefing text */}
+          <div
+            ref={safetyScrollRef}
+            onScroll={handleSafetyScroll}
+            className="h-64 overflow-y-auto border border-gray-200 rounded-xl p-4 mb-6 bg-gray-50/50"
+          >
+            <SafetyBriefingText />
+          </div>
+
+          {!safetyScrolledToBottom && (
+            <p className="text-xs text-amber-600 font-medium mb-4 text-center">
+              Please scroll to the bottom of the safety briefing to continue
+            </p>
+          )}
+
+          {safetyScrolledToBottom && (
+            <div className="space-y-5 max-w-lg mx-auto">
+              <SignaturePad label="Signature — I acknowledge the safety briefing *" onSignatureChange={setSafetySignature} />
+              <p className="text-xs text-gray-500 text-center">
+                By signing above, I confirm that I received and understand the safety briefing and agree to follow all rules and instructions.
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-between mt-8">
+            <button onClick={() => setStep('waiver')} className="btn-secondary">Back</button>
+            <button
+              onClick={() => setStep('confirm')}
+              disabled={!safetyScrolledToBottom || !safetySignature}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Review Booking
@@ -740,6 +806,13 @@ export default function BookingWizard() {
                 <CheckCircle className="w-4 h-4" /> Signed
               </span>
             </div>
+            <div className="border-t border-brand-100" />
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-brand-600/60">Safety Briefing</span>
+              <span className="font-semibold text-green-600 flex items-center gap-1">
+                <ShieldCheck className="w-4 h-4" /> Acknowledged
+              </span>
+            </div>
             <div className="border-t-2 border-brand-200 pt-2" />
             <div className="flex justify-between items-center">
               <span className="font-bold text-brand-900">Total</span>
@@ -758,7 +831,7 @@ export default function BookingWizard() {
           </p>
 
           <div className="flex justify-between mt-8">
-            <button onClick={() => setStep('waiver')} className="btn-secondary" disabled={submitting}>Back</button>
+            <button onClick={() => setStep('safety')} className="btn-secondary" disabled={submitting}>Back</button>
             <button
               onClick={handleSubmit}
               disabled={submitting}
@@ -812,6 +885,10 @@ export default function BookingWizard() {
             <div className="flex justify-between">
               <span className="text-sm text-brand-600/60">Waiver</span>
               <span className="font-semibold text-green-600">Signed</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-brand-600/60">Safety Briefing</span>
+              <span className="font-semibold text-green-600">Acknowledged</span>
             </div>
           </div>
 
