@@ -23,6 +23,8 @@ export interface WaiverData {
   driversLicenseId: string;
   signatureDataUrl: string;
   idPhotoDataUrl: string;
+  boaterIdPhotoDataUrl: string;
+  liabilityVideoDataUrl: string;
   photoVideoOptOut: boolean;
   isMinor: boolean;
   minorName?: string;

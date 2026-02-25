@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isBefore, startOfToday, isWeekend, parseISO, addMonths } from 'date-fns';
-import { ChevronLeft, ChevronRight, Clock, Waves, CheckCircle, Loader2, CreditCard, FileText, Upload, Camera } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Waves, CheckCircle, Loader2, CreditCard, FileText, Upload, Camera, Anchor } from 'lucide-react';
 import { cn, formatTime } from '@/lib/utils';
 import SignaturePad from './SignaturePad';
 import WaiverText from './WaiverText';
+import VideoRecorder from './VideoRecorder';
+
+const LIABILITY_STATEMENT = "My name is _______. Today is _______. I am voluntarily renting and operating this jet ski. I confirm I received the safety briefing, understand the risks of injury or death, and will follow all rules and Florida boating laws. I accept full responsibility for myself and my passengers, assume all risks, and release the rental company and its employees from liability.";
 
 interface TimeSlot {
   id: string;
@@ -54,9 +57,12 @@ export default function BookingWizard() {
   const [waiverMinorAge, setWaiverMinorAge] = useState('');
   const [waiverGuardianSignature, setWaiverGuardianSignature] = useState('');
   const [waiverGuardianName, setWaiverGuardianName] = useState('');
+  const [waiverBoaterIdPhoto, setWaiverBoaterIdPhoto] = useState('');
+  const [waiverLiabilityVideo, setWaiverLiabilityVideo] = useState('');
   const [waiverScrolledToBottom, setWaiverScrolledToBottom] = useState(false);
   const waiverScrollRef = useRef<HTMLDivElement>(null);
   const idInputRef = useRef<HTMLInputElement>(null);
+  const boaterIdInputRef = useRef<HTMLInputElement>(null);
 
   // Load inventory data
   useEffect(() => {
@@ -97,6 +103,16 @@ export default function BookingWizard() {
     reader.readAsDataURL(file);
   };
 
+  const handleBoaterIdUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setWaiverBoaterIdPhoto(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleWaiverScroll = () => {
     const el = waiverScrollRef.current;
     if (!el) return;
@@ -107,7 +123,7 @@ export default function BookingWizard() {
   };
 
   const isWaiverComplete = () => {
-    const base = waiverDOB && waiverAddress && waiverLicenseId && waiverSignature && waiverIdPhoto;
+    const base = waiverDOB && waiverAddress && waiverLicenseId && waiverSignature && waiverIdPhoto && waiverBoaterIdPhoto && waiverLiabilityVideo;
     if (waiverIsMinor) {
       return base && waiverMinorName && waiverMinorAge && waiverGuardianSignature && waiverGuardianName;
     }
@@ -135,6 +151,8 @@ export default function BookingWizard() {
             driversLicenseId: waiverLicenseId,
             signatureDataUrl: waiverSignature,
             idPhotoDataUrl: waiverIdPhoto,
+            boaterIdPhotoDataUrl: waiverBoaterIdPhoto,
+            liabilityVideoDataUrl: waiverLiabilityVideo,
             photoVideoOptOut: waiverPhotoOptOut,
             isMinor: waiverIsMinor,
             minorName: waiverIsMinor ? waiverMinorName : undefined,
@@ -565,6 +583,54 @@ export default function BookingWizard() {
                   </button>
                 )}
               </div>
+
+              {/* Boater ID Upload */}
+              <div>
+                <label className="block text-sm font-medium text-brand-800 mb-1.5">
+                  <span className="flex items-center gap-1.5">
+                    <Anchor className="w-4 h-4 text-ocean-500" />
+                    Upload Boater&apos;s License / Boater ID *
+                  </span>
+                </label>
+                <input
+                  ref={boaterIdInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleBoaterIdUpload}
+                  className="hidden"
+                />
+                {waiverBoaterIdPhoto ? (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={waiverBoaterIdPhoto} alt="Boater ID" className="w-full h-32 object-cover rounded-xl border border-green-300" />
+                    <button
+                      onClick={() => { setWaiverBoaterIdPhoto(''); if (boaterIdInputRef.current) boaterIdInputRef.current.value = ''; }}
+                      className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-lg"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => boaterIdInputRef.current?.click()}
+                    className="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center gap-2 hover:border-ocean-400 hover:bg-ocean-50/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Camera className="w-6 h-6 text-gray-400" />
+                      <Upload className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <span className="text-sm text-gray-500">Tap to take photo or upload</span>
+                    <span className="text-xs text-gray-400">Florida Boater Safety ID Card or equivalent</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Video Liability Statement */}
+              <VideoRecorder
+                onVideoChange={setWaiverLiabilityVideo}
+                statementText={LIABILITY_STATEMENT}
+              />
 
               {/* Photo/Video Opt Out */}
               <label className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 cursor-pointer">

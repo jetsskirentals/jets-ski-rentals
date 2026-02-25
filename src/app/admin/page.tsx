@@ -16,6 +16,8 @@ interface WaiverData {
   driversLicenseId: string;
   signatureDataUrl: string;
   idPhotoDataUrl: string;
+  boaterIdPhotoDataUrl?: string;
+  liabilityVideoDataUrl?: string;
   photoVideoOptOut: boolean;
   isMinor: boolean;
   minorName?: string;
@@ -470,7 +472,7 @@ export default function AdminPage() {
                                 </div>
                               )}
                               <div>
-                                <span className="text-gray-500 block text-xs mb-1.5">ID Photo</span>
+                                <span className="text-gray-500 block text-xs mb-1.5">Photo ID</span>
                                 <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
                                   {b.waiver.idPhotoDataUrl
                                     // eslint-disable-next-line @next/next/no-img-element
@@ -479,7 +481,32 @@ export default function AdminPage() {
                                   }
                                 </div>
                               </div>
+                              {b.waiver.boaterIdPhotoDataUrl && (
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-1.5">Boater ID</span>
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={b.waiver.boaterIdPhotoDataUrl} alt="Boater ID" className="h-32 w-auto rounded" />
+                                  </div>
+                                </div>
+                              )}
                             </div>
+
+                            {/* Liability Video */}
+                            {b.waiver.liabilityVideoDataUrl && (
+                              <div className="mt-4">
+                                <span className="text-gray-500 block text-xs mb-1.5">Liability Statement Video</span>
+                                <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block max-w-md">
+                                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                                  <video
+                                    src={b.waiver.liabilityVideoDataUrl}
+                                    controls
+                                    className="w-full rounded max-h-64"
+                                    playsInline
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
