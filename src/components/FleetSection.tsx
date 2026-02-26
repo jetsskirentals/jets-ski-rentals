@@ -6,14 +6,14 @@ const jetSkis = [
     name: 'Wave Runner 1',
     model: 'Yamaha EX Sport',
     description: 'Perfect for beginners and families. Stable, easy to handle, and a blast on the water!',
-    features: ['Beginner Friendly', 'Seats 1-3', 'Smooth Ride'],
+    features: ['Beginner Friendly', 'Seats 1-2', 'Smooth Ride'],
     image: '/jetskis-fleet.jpeg',
   },
   {
     name: 'Wave Runner 2',
     model: 'Yamaha EX Sport',
     description: 'Same great ride, double the fun! Bring a friend and race across the water.',
-    features: ['Beginner Friendly', 'Seats 1-3', 'Smooth Ride'],
+    features: ['Beginner Friendly', 'Seats 1-2', 'Smooth Ride'],
     image: '/jetski-action1.jpeg',
   },
 ];

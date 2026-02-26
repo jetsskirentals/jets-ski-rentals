@@ -225,17 +225,22 @@ export default function AdminPage() {
   const [loadedWaivers, setLoadedWaivers] = useState<Record<string, WaiverData>>({});
 
   // Load waiver data from API when expanding
+  const [waiverNotFound, setWaiverNotFound] = useState<Set<string>>(new Set());
   const loadWaiver = async (bookingId: string) => {
-    if (loadedWaivers[bookingId]) return;
+    if (loadedWaivers[bookingId] || waiverNotFound.has(bookingId)) return;
     try {
       const res = await fetch(`/api/admin/waiver?bookingId=${bookingId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.waiver) {
           setLoadedWaivers(prev => ({ ...prev, [bookingId]: data.waiver }));
+          return;
         }
       }
-    } catch { /* ignore */ }
+      setWaiverNotFound(prev => new Set(prev).add(bookingId));
+    } catch {
+      setWaiverNotFound(prev => new Set(prev).add(bookingId));
+    }
   };
 
   const fetchAll = async () => {
@@ -615,6 +620,7 @@ export default function AdminPage() {
                         {/* Expanded waiver details */}
                         {isExpanded && (() => {
                           const w = loadedWaivers[b.id] || b.waiver;
+                          if (!w && waiverNotFound.has(b.id)) return <div className="border-t border-gray-100 bg-purple-50/30 p-4 text-sm text-gray-400">No waiver data saved for this booking (booked before database was set up).</div>;
                           if (!w) return <div className="border-t border-gray-100 bg-purple-50/30 p-4 text-sm text-gray-400">Loading waiver data...</div>;
                           return (
                           <div className="border-t border-gray-100 bg-purple-50/30 p-4">
