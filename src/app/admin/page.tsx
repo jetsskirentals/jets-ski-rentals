@@ -4,11 +4,91 @@ import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   LayoutDashboard, CalendarDays, DollarSign, Star, Settings, Plus,
-  Waves, Users, Loader2, Trash2, Edit3, Save, X, FileCheck, Eye, ChevronDown, ChevronUp, CheckCircle
+  Waves, Users, Loader2, Trash2, Edit3, Save, X, FileCheck, Eye, ChevronDown, ChevronUp, CheckCircle, LogOut, Lock
 } from 'lucide-react';
 import { cn, formatTime } from '@/lib/utils';
 
 type Tab = 'overview' | 'bookings' | 'inventory' | 'reviews' | 'settings';
+
+// ─── Login Screen ───
+function LoginScreen({ onLogin }: { onLogin: () => void }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        onLogin();
+      } else {
+        setError('Incorrect password');
+      }
+    } catch {
+      setError('Something went wrong. Please try again.');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm">
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Lock className="w-8 h-8 text-brand-700" />
+          </div>
+          <h1 className="text-2xl font-bold text-brand-900">Admin Login</h1>
+          <p className="text-sm text-gray-500 mt-1">Jet&apos;s Ski Rentals Dashboard</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="password"
+            placeholder="Enter admin password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none text-center text-lg"
+            autoFocus
+          />
+          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading || !password}
+            className="w-full py-3 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stripe Booking interface ───
+interface StripeBooking {
+  id: string;
+  date: string;
+  startTime: string;
+  customerName: string;
+  customerEmail: string;
+  jetSkiId: string;
+  totalPrice: number;
+  status: string;
+  createdAt: string;
+}
+interface StripeStats {
+  totalBookings: number;
+  totalRevenue: number;
+  todayBookings: number;
+  todayRevenue: number;
+}
 
 interface WaiverData {
   participantDOB: string;
@@ -55,14 +135,29 @@ interface SettingsData {
 }
 
 export default function AdminPage() {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [stripeBookings, setStripeBookings] = useState<StripeBooking[]>([]);
+  const [stripeStats, setStripeStats] = useState<StripeStats | null>(null);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [jetSkis, setJetSkis] = useState<JetSki[]>([]);
   const [blackoutDates, setBlackoutDates] = useState<BlackoutDate[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Check auth on mount
+  useEffect(() => {
+    fetch('/api/admin/auth')
+      .then(r => { setAuthenticated(r.ok); })
+      .catch(() => setAuthenticated(false));
+  }, []);
+
+  const handleLogout = async () => {
+    await fetch('/api/admin/auth', { method: 'DELETE' });
+    setAuthenticated(false);
+  };
 
   // Manual booking form
   const [showManualForm, setShowManualForm] = useState(false);
@@ -103,9 +198,21 @@ export default function AdminPage() {
     setBlackoutDates(inventoryRes.blackoutDates);
     setReviews(reviewsRes.reviews);
     setSettings(settingsRes.settings);
+
+    // Fetch Stripe bookings (real payment data)
+    try {
+      const stripeRes = await fetch('/api/admin/stripe-bookings');
+      if (stripeRes.ok) {
+        const stripeData = await stripeRes.json();
+        setStripeBookings(stripeData.bookings || []);
+        setStripeStats(stripeData.stats || null);
+      }
+    } catch { /* Stripe data is optional */ }
+
     setLoading(false);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchAll(); }, []);
 
   const cancelBooking = async (id: string) => {
@@ -214,7 +321,20 @@ export default function AdminPage() {
   const activeBookings = bookings.filter(b => b.status === 'confirmed');
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todayBookings = activeBookings.filter(b => b.date === todayStr);
-  const revenue = activeBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+  // Use Stripe stats if available (persists across restarts), fall back to in-memory data
+  const revenue = stripeStats?.totalRevenue ?? activeBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+
+  // Merge Stripe bookings with in-memory bookings (Stripe bookings are authoritative)
+  const allBookings: Booking[] = (() => {
+    const memoryIds = new Set(bookings.map(b => b.id));
+    const stripeOnly: Booking[] = stripeBookings.filter(sb => !memoryIds.has(sb.id)).map(sb => ({
+      ...sb,
+      customerPhone: '',
+      timeSlotId: sb.jetSkiId || '',
+      isManual: false,
+    }));
+    return [...bookings, ...stripeOnly];
+  })();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tabs: { key: Tab; label: string; icon: any }[] = [
@@ -225,12 +345,17 @@ export default function AdminPage() {
     { key: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  if (loading) {
+  // Auth checks (after all hooks)
+  if (authenticated === null || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
       </div>
     );
+  }
+
+  if (!authenticated) {
+    return <LoginScreen onLogin={() => setAuthenticated(true)} />;
   }
 
   return (
@@ -246,9 +371,18 @@ export default function AdminPage() {
             <p className="text-brand-300 text-xs">Jet&apos;s Ski Rentals</p>
           </div>
         </div>
-        <a href="/" className="text-sm text-brand-300 hover:text-white transition-colors">
-          View Site &rarr;
-        </a>
+        <div className="flex items-center gap-4">
+          <a href="/" className="text-sm text-brand-300 hover:text-white transition-colors">
+            View Site &rarr;
+          </a>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 text-sm text-brand-300 hover:text-red-300 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row">
@@ -282,8 +416,8 @@ export default function AdminPage() {
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard Overview</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 {[
-                  { label: 'Today\'s Bookings', value: todayBookings.length, icon: CalendarDays, color: 'text-brand-600 bg-brand-50' },
-                  { label: 'Total Active', value: activeBookings.length, icon: Users, color: 'text-ocean-600 bg-ocean-50' },
+                  { label: 'Today\'s Bookings', value: stripeStats?.todayBookings ?? todayBookings.length, icon: CalendarDays, color: 'text-brand-600 bg-brand-50' },
+                  { label: 'Total Bookings', value: stripeStats?.totalBookings ?? activeBookings.length, icon: Users, color: 'text-ocean-600 bg-ocean-50' },
                   { label: 'Total Revenue', value: `$${revenue}`, icon: DollarSign, color: 'text-green-600 bg-green-50' },
                   { label: 'Signed Waivers', value: bookings.filter(b => b.waiver).length, icon: FileCheck, color: 'text-purple-600 bg-purple-50' },
                 ].map(stat => (
@@ -355,11 +489,11 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {bookings.length === 0 ? (
+              {allBookings.length === 0 ? (
                 <p className="text-gray-400">No bookings yet.</p>
               ) : (
                 <div className="space-y-2">
-                  {[...bookings].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(b => {
+                  {[...allBookings].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(b => {
                     const jetSki = jetSkis.find(js => js.id === b.jetSkiId);
                     const slot = timeSlots.find(ts => ts.id === b.timeSlotId);
                     const isExpanded = expandedWaivers.has(b.id);
