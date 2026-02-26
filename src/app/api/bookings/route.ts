@@ -13,16 +13,36 @@ export async function GET(request: NextRequest) {
     const slot = store.timeSlots.find(ts => ts.id === timeSlotId);
     if (!slot) return NextResponse.json({ error: 'Invalid time slot' }, { status: 400 });
 
+    let times: string[];
+
     // "both" means find times available for ALL jet skis simultaneously
     if (jetSkiId === 'both') {
       const availableJetSkis = store.jetSkis.filter(js => js.status === 'available');
       const timeSets = availableJetSkis.map(js => store.getAvailableStartTimes(js.id, date, slot.durationMinutes));
       // Intersection: only times available for every jet ski
-      const commonTimes = timeSets.reduce((acc, times) => acc.filter(t => times.includes(t)));
-      return NextResponse.json({ availableTimes: commonTimes });
+      times = timeSets.reduce((acc, t) => acc.filter(time => t.includes(time)));
+    } else {
+      times = store.getAvailableStartTimes(jetSkiId, date, slot.durationMinutes);
     }
 
-    const times = store.getAvailableStartTimes(jetSkiId, date, slot.durationMinutes);
+    // Filter out past times if the requested date is today (using client timezone offset)
+    const tzOffset = searchParams.get('tzOffset'); // minutes offset from UTC (e.g., 300 for EST)
+    const now = new Date();
+    if (tzOffset) {
+      // Calculate client's local time using their timezone offset
+      const clientNow = new Date(now.getTime() - parseInt(tzOffset) * 60000);
+      const clientDateStr = clientNow.toISOString().split('T')[0];
+      if (date === clientDateStr) {
+        const clientHours = clientNow.getUTCHours();
+        const clientMinutes = clientNow.getUTCMinutes();
+        const nowMinutes = clientHours * 60 + clientMinutes;
+        times = times.filter(t => {
+          const [h, m] = t.split(':').map(Number);
+          return h * 60 + m > nowMinutes;
+        });
+      }
+    }
+
     return NextResponse.json({ availableTimes: times });
   }
 
