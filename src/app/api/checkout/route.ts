@@ -83,17 +83,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
       customer_email: customerEmail,
       line_items: [
         {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `Jet Ski Rental — ${slot.label}`,
+              name: `Jet Ski Rental - ${slot.label}`,
               description: `${jetSkiNames} on ${date} at ${startTime}`,
             },
-            unit_amount: pricePerJetSki * 100, // Stripe uses cents
+            unit_amount: Math.round(pricePerJetSki * 100), // Stripe uses cents
           },
           quantity: jetSkiIds.length,
         },
