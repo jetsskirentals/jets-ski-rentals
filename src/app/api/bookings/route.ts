@@ -12,6 +12,16 @@ export async function GET(request: NextRequest) {
   if (date && jetSkiId && timeSlotId) {
     const slot = store.timeSlots.find(ts => ts.id === timeSlotId);
     if (!slot) return NextResponse.json({ error: 'Invalid time slot' }, { status: 400 });
+
+    // "both" means find times available for ALL jet skis simultaneously
+    if (jetSkiId === 'both') {
+      const availableJetSkis = store.jetSkis.filter(js => js.status === 'available');
+      const timeSets = availableJetSkis.map(js => store.getAvailableStartTimes(js.id, date, slot.durationMinutes));
+      // Intersection: only times available for every jet ski
+      const commonTimes = timeSets.reduce((acc, times) => acc.filter(t => times.includes(t)));
+      return NextResponse.json({ availableTimes: commonTimes });
+    }
+
     const times = store.getAvailableStartTimes(jetSkiId, date, slot.durationMinutes);
     return NextResponse.json({ availableTimes: times });
   }

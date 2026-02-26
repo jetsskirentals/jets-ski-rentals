@@ -81,22 +81,28 @@ export default function BookingWizard() {
       .catch(() => {});
   }, []);
 
+  // Both jet skis option
+  const [selectBoth, setSelectBoth] = useState(false);
+
   // Load available times when jet ski, date, and slot are selected
   useEffect(() => {
-    if (!selectedDate || !selectedJetSki || !selectedSlot) return;
+    if (!selectedDate || !selectedSlot) return;
+    if (!selectBoth && !selectedJetSki) return;
     setLoading(true);
-    fetch(`/api/bookings?date=${selectedDate}&jetSkiId=${selectedJetSki.id}&timeSlotId=${selectedSlot.id}`)
+    const jetSkiParam = selectBoth ? 'both' : selectedJetSki!.id;
+    fetch(`/api/bookings?date=${selectedDate}&jetSkiId=${jetSkiParam}&timeSlotId=${selectedSlot.id}`)
       .then(r => r.json())
       .then(data => {
         setAvailableTimes(data.availableTimes || []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [selectedDate, selectedJetSki, selectedSlot]);
+  }, [selectedDate, selectedJetSki, selectedSlot, selectBoth]);
 
   const getPrice = () => {
     if (!selectedSlot || !selectedDate) return 0;
-    return isWeekend(parseISO(selectedDate)) ? selectedSlot.weekendPrice : selectedSlot.weekdayPrice;
+    const base = isWeekend(parseISO(selectedDate)) ? selectedSlot.weekendPrice : selectedSlot.weekdayPrice;
+    return selectBoth ? base * 2 : base;
   };
 
   const handleIdPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,7 +156,7 @@ export default function BookingWizard() {
     setError('');
     try {
       const bookingPayload = {
-        jetSkiId: selectedJetSki!.id,
+        jetSkiId: selectBoth ? 'both' : selectedJetSki!.id,
         date: selectedDate,
         timeSlotId: selectedSlot!.id,
         startTime: selectedTime,
@@ -409,12 +415,12 @@ export default function BookingWizard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {jetSkis.map((js) => {
-              const isSelected = selectedJetSki?.id === js.id;
+              const isSelected = !selectBoth && selectedJetSki?.id === js.id;
 
               return (
                 <button
                   key={js.id}
-                  onClick={() => setSelectedJetSki(js)}
+                  onClick={() => { setSelectBoth(false); setSelectedJetSki(js); }}
                   className={cn(
                     'p-5 rounded-xl border-2 text-left transition-all',
                     isSelected
@@ -436,11 +442,39 @@ export default function BookingWizard() {
             })}
           </div>
 
+          {/* Both Jet Skis option */}
+          {jetSkis.length >= 2 && (
+            <div className="mt-4">
+              <button
+                onClick={() => { setSelectBoth(true); setSelectedJetSki(null); }}
+                className={cn(
+                  'w-full p-5 rounded-xl border-2 text-left transition-all',
+                  selectBoth
+                    ? 'border-brand-500 bg-gradient-to-r from-brand-50 to-ocean-50 shadow-lg'
+                    : 'border-gray-200 hover:border-brand-300 hover:bg-brand-50/50'
+                )}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-sunset-400 to-brand-500 rounded-xl flex items-center justify-center">
+                    <Waves className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-brand-900">Both Jet Skis</div>
+                    <span className="text-xs font-semibold text-sunset-600">2x price — perfect for groups!</span>
+                  </div>
+                </div>
+                <p className="text-sm text-brand-700/60">
+                  Reserve both Wave Runners for the same time slot. Great for friends, families, or racing each other!
+                </p>
+              </button>
+            </div>
+          )}
+
           <div className="flex justify-between mt-8">
             <button onClick={() => setStep('duration')} className="btn-secondary">Back</button>
             <button
               onClick={() => setStep('time')}
-              disabled={!selectedJetSki}
+              disabled={!selectedJetSki && !selectBoth}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continue
@@ -454,7 +488,7 @@ export default function BookingWizard() {
         <div>
           <h3 className="text-xl font-bold text-brand-900 mb-2">Pick Your Start Time</h3>
           <p className="text-sm text-brand-600/50 mb-6">
-            {selectedJetSki?.name} &middot; {selectedSlot?.label} &middot; {format(parseISO(selectedDate), 'MMM d, yyyy')}
+            {selectBoth ? 'Both Jet Skis' : selectedJetSki?.name} &middot; {selectedSlot?.label} &middot; {format(parseISO(selectedDate), 'MMM d, yyyy')}
           </p>
 
           {loading ? (
@@ -802,7 +836,7 @@ export default function BookingWizard() {
             <div className="border-t border-brand-100" />
             <div className="flex justify-between items-center">
               <span className="text-sm text-brand-600/60">Jet Ski</span>
-              <span className="font-semibold text-brand-900">{selectedJetSki?.name}</span>
+              <span className="font-semibold text-brand-900">{selectBoth ? 'Both Jet Skis' : selectedJetSki?.name}</span>
             </div>
             <div className="border-t border-brand-100" />
             <div className="flex justify-between items-center">

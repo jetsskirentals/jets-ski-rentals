@@ -19,53 +19,63 @@ export async function POST(request: NextRequest) {
   const slot = store.timeSlots.find(ts => ts.id === timeSlotId);
   if (!slot) return NextResponse.json({ error: 'Invalid time slot' }, { status: 400 });
 
-  // Check availability
-  if (!store.isAvailable(jetSkiId, date, startTime, slot.durationMinutes)) {
-    return NextResponse.json({ error: 'This slot is no longer available' }, { status: 409 });
+  // Determine which jet skis to book
+  const isBoth = jetSkiId === 'both';
+  const jetSkiIds = isBoth
+    ? store.jetSkis.filter(js => js.status === 'available').map(js => js.id)
+    : [jetSkiId];
+
+  // Check availability for all requested jet skis
+  for (const jsId of jetSkiIds) {
+    if (!store.isAvailable(jsId, date, startTime, slot.durationMinutes)) {
+      return NextResponse.json({ error: 'This slot is no longer available' }, { status: 409 });
+    }
   }
 
-  const totalPrice = isWeekendDate(date) ? slot.weekendPrice : slot.weekdayPrice;
-  const jetSki = store.jetSkis.find(js => js.id === jetSkiId);
+  const pricePerJetSki = isWeekendDate(date) ? slot.weekendPrice : slot.weekdayPrice;
+  const totalPrice = pricePerJetSki * jetSkiIds.length;
+  const jetSkiNames = jetSkiIds.map(id => store.jetSkis.find(js => js.id === id)?.name || 'Jet Ski').join(' & ');
 
   // If Stripe is not configured, fall back to direct booking (no payment)
   if (!stripe) {
-    const booking = {
+    const bookings = jetSkiIds.map(jsId => ({
       id: `bk-${generateId()}`,
-      jetSkiId,
+      jetSkiId: jsId,
       date,
       timeSlotId,
       startTime,
       customerName,
       customerEmail,
       customerPhone: customerPhone || '',
-      totalPrice,
+      totalPrice: pricePerJetSki,
       status: 'confirmed' as const,
       createdAt: new Date().toISOString(),
       isManual: false,
       waiver: waiver || undefined,
-    };
-    store.bookings.push(booking);
-    return NextResponse.json({ booking, mode: 'no-payment' }, { status: 201 });
+    }));
+    bookings.forEach(b => store.bookings.push(b));
+    return NextResponse.json({ booking: { ...bookings[0], totalPrice }, mode: 'no-payment' }, { status: 201 });
   }
 
-  // Create a pending booking to hold the slot
-  const bookingId = `bk-${generateId()}`;
-  const pendingBooking = {
-    id: bookingId,
-    jetSkiId,
+  // Create pending bookings to hold the slots
+  const primaryBookingId = `bk-${generateId()}`;
+  const pendingBookings = jetSkiIds.map((jsId, i) => ({
+    id: i === 0 ? primaryBookingId : `bk-${generateId()}`,
+    jetSkiId: jsId,
     date,
     timeSlotId,
     startTime,
     customerName,
     customerEmail,
     customerPhone: customerPhone || '',
-    totalPrice,
+    totalPrice: pricePerJetSki,
     status: 'pending' as const,
     createdAt: new Date().toISOString(),
     isManual: false,
     waiver: waiver || undefined,
-  };
-  store.bookings.push(pendingBooking);
+  }));
+  pendingBookings.forEach(b => store.bookings.push(b));
+  const allBookingIds = pendingBookings.map(b => b.id);
 
   // Create Stripe Checkout Session
   const baseUrl = request.headers.get('origin') || request.headers.get('referer')?.replace(/\/[^/]*$/, '') || 'http://localhost:3000';
@@ -80,19 +90,20 @@ export async function POST(request: NextRequest) {
             currency: 'usd',
             product_data: {
               name: `Jet Ski Rental — ${slot.label}`,
-              description: `${jetSki?.name || 'Jet Ski'} on ${date} at ${startTime}`,
+              description: `${jetSkiNames} on ${date} at ${startTime}`,
             },
-            unit_amount: totalPrice * 100, // Stripe uses cents
+            unit_amount: pricePerJetSki * 100, // Stripe uses cents
           },
-          quantity: 1,
+          quantity: jetSkiIds.length,
         },
       ],
       mode: 'payment',
-      success_url: `${baseUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
+      success_url: `${baseUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${primaryBookingId}`,
       cancel_url: `${baseUrl}/booking?cancelled=true`,
       metadata: {
-        bookingId,
-        jetSkiId,
+        bookingId: primaryBookingId,
+        allBookingIds: allBookingIds.join(','),
+        jetSkiId: isBoth ? 'both' : jetSkiId,
         date,
         timeSlotId,
         startTime,
@@ -103,12 +114,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       checkoutUrl: session.url,
       sessionId: session.id,
-      bookingId,
+      bookingId: primaryBookingId,
     });
   } catch (error: unknown) {
-    // Remove the pending booking if Stripe fails
-    const idx = store.bookings.findIndex(b => b.id === bookingId);
-    if (idx !== -1) store.bookings.splice(idx, 1);
+    // Remove all pending bookings if Stripe fails
+    for (const bid of allBookingIds) {
+      const idx = store.bookings.findIndex(b => b.id === bid);
+      if (idx !== -1) store.bookings.splice(idx, 1);
+    }
 
     const message = error instanceof Error ? error.message : 'Payment setup failed';
     return NextResponse.json({ error: message }, { status: 500 });

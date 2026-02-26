@@ -20,10 +20,13 @@ export async function POST(request: NextRequest) {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
+      const allBookingIds = session.metadata?.allBookingIds?.split(',') || [];
       const bookingId = session.metadata?.bookingId;
 
-      if (bookingId) {
-        const booking = store.bookings.find(b => b.id === bookingId);
+      // Confirm all bookings in this session (supports "both jet skis" reservations)
+      const idsToConfirm = allBookingIds.length > 0 ? allBookingIds : (bookingId ? [bookingId] : []);
+      for (const bid of idsToConfirm) {
+        const booking = store.bookings.find(b => b.id === bid);
         if (booking) {
           booking.status = 'confirmed';
         }
@@ -32,10 +35,12 @@ export async function POST(request: NextRequest) {
 
     if (event.type === 'checkout.session.expired') {
       const session = event.data.object;
+      const allBookingIds = session.metadata?.allBookingIds?.split(',') || [];
       const bookingId = session.metadata?.bookingId;
 
-      if (bookingId) {
-        const booking = store.bookings.find(b => b.id === bookingId);
+      const idsToCancel = allBookingIds.length > 0 ? allBookingIds : (bookingId ? [bookingId] : []);
+      for (const bid of idsToCancel) {
+        const booking = store.bookings.find(b => b.id === bid);
         if (booking && booking.status === 'pending') {
           booking.status = 'cancelled';
         }
