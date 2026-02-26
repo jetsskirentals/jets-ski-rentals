@@ -93,7 +93,18 @@ export default function BookingWizard() {
     fetch(`/api/bookings?date=${selectedDate}&jetSkiId=${jetSkiParam}&timeSlotId=${selectedSlot.id}`)
       .then(r => r.json())
       .then(data => {
-        setAvailableTimes(data.availableTimes || []);
+        let times: string[] = data.availableTimes || [];
+        // Filter out past times if booking for today
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        if (selectedDate === todayStr) {
+          const now = new Date();
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          times = times.filter(t => {
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m > nowMinutes;
+          });
+        }
+        setAvailableTimes(times);
         setLoading(false);
       })
       .catch(() => setLoading(false));
