@@ -7,7 +7,7 @@ const jetSkis = [
     model: 'Yamaha EX Sport',
     description: 'Perfect for beginners and families. Stable, easy to handle, and a blast on the water!',
     features: ['Beginner Friendly', 'Seats 1-2', 'Smooth Ride'],
-    image: '/jetskis-fleet.jpeg',
+    image: '/jetski-pair2.jpeg',
   },
   {
     name: 'Wave Runner 2',
@@ -32,7 +32,7 @@ export default function FleetSection() {
         {/* Full-width action photo */}
         <div className="relative h-64 md:h-80 rounded-2xl overflow-hidden mb-10 max-w-4xl mx-auto">
           <Image
-            src="/jetskis-fleet.jpeg"
+            src="/jetski-pair1.jpeg"
             alt="Our two Yamaha EX Sport jet skis"
             fill
             className="object-cover"

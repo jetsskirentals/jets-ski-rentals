@@ -97,10 +97,10 @@ const defaultJetSkis: JetSki[] = [
 ];
 
 const defaultTimeSlots: TimeSlot[] = [
-  { id: 'ts-15', label: '15 Minutes', durationMinutes: 15, weekdayPrice: 35, weekendPrice: 45 },
-  { id: 'ts-30', label: '30 Minutes', durationMinutes: 30, weekdayPrice: 60, weekendPrice: 75 },
-  { id: 'ts-60', label: '1 Hour', durationMinutes: 60, weekdayPrice: 100, weekendPrice: 125 },
-  { id: 'ts-120', label: '2 Hours', durationMinutes: 120, weekdayPrice: 175, weekendPrice: 220 },
+  { id: 'ts-15', label: '15 Minutes', durationMinutes: 15, weekdayPrice: 45, weekendPrice: 55 },
+  { id: 'ts-30', label: '30 Minutes', durationMinutes: 30, weekdayPrice: 75, weekendPrice: 95 },
+  { id: 'ts-60', label: '1 Hour', durationMinutes: 60, weekdayPrice: 125, weekendPrice: 155 },
+  { id: 'ts-120', label: '2 Hours', durationMinutes: 120, weekdayPrice: 200, weekendPrice: 250 },
 ];
 
 const defaultReviews: Review[] = [
