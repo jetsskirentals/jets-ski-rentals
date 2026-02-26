@@ -8,14 +8,34 @@ export async function GET() {
   const keyLength = keyTrimmed?.length || 0;
   const stripeInitialized = !!stripe;
 
-  // Try a simple Stripe API call to verify the key works
-  let apiTest = 'not tested';
+  // Test 1: Try via Stripe SDK
+  let sdkTest = 'not tested';
   if (stripe) {
     try {
       await stripe.balance.retrieve();
-      apiTest = 'success';
+      sdkTest = 'success';
     } catch (e: unknown) {
-      apiTest = e instanceof Error ? e.message : 'unknown error';
+      sdkTest = e instanceof Error ? `${e.constructor.name}: ${e.message}` : 'unknown error';
+    }
+  }
+
+  // Test 2: Try direct HTTP call to Stripe API (bypass SDK)
+  let directTest = 'not tested';
+  if (keyTrimmed) {
+    try {
+      const res = await fetch('https://api.stripe.com/v1/balance', {
+        headers: {
+          'Authorization': `Bearer ${keyTrimmed}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        directTest = 'success';
+      } else {
+        directTest = `HTTP ${res.status}: ${data.error?.message || JSON.stringify(data)}`;
+      }
+    } catch (e: unknown) {
+      directTest = e instanceof Error ? `${e.constructor.name}: ${e.message}` : 'unknown error';
     }
   }
 
@@ -24,6 +44,7 @@ export async function GET() {
     keyPrefix,
     keyLength,
     stripeInitialized,
-    apiTest,
+    sdkTest,
+    directTest,
   });
 }
