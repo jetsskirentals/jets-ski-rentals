@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { store } from '@/lib/store';
+import { updateBookingStatus } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   if (!stripe) {
@@ -23,13 +23,9 @@ export async function POST(request: NextRequest) {
       const allBookingIds = session.metadata?.allBookingIds?.split(',') || [];
       const bookingId = session.metadata?.bookingId;
 
-      // Confirm all bookings in this session (supports "both jet skis" reservations)
       const idsToConfirm = allBookingIds.length > 0 ? allBookingIds : (bookingId ? [bookingId] : []);
       for (const bid of idsToConfirm) {
-        const booking = store.bookings.find(b => b.id === bid);
-        if (booking) {
-          booking.status = 'confirmed';
-        }
+        await updateBookingStatus(bid, 'confirmed');
       }
     }
 
@@ -40,10 +36,7 @@ export async function POST(request: NextRequest) {
 
       const idsToCancel = allBookingIds.length > 0 ? allBookingIds : (bookingId ? [bookingId] : []);
       for (const bid of idsToCancel) {
-        const booking = store.bookings.find(b => b.id === bid);
-        if (booking && booking.status === 'pending') {
-          booking.status = 'cancelled';
-        }
+        await updateBookingStatus(bid, 'cancelled');
       }
     }
 

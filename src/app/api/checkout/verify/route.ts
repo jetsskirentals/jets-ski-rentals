@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { store } from '@/lib/store';
+import { getBookingById, updateBookingStatus } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing booking ID' }, { status: 400 });
   }
 
-  const booking = store.bookings.find(b => b.id === bookingId);
+  const booking = await getBookingById(bookingId);
   if (!booking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
   if (stripe && sessionId) {
     try {
       const session = await stripe.checkout.sessions.retrieve(sessionId);
-      if (session.payment_status === 'paid') {
+      if (session.payment_status === 'paid' && booking.status !== 'confirmed') {
+        await updateBookingStatus(bookingId, 'confirmed');
         booking.status = 'confirmed';
       }
     } catch {

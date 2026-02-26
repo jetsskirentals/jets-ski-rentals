@@ -52,6 +52,7 @@ export default function BookingWizard() {
   const [waiverLicenseId, setWaiverLicenseId] = useState('');
   const [waiverSignature, setWaiverSignature] = useState('');
   const [waiverIdPhoto, setWaiverIdPhoto] = useState('');
+  const [waiverIdPhotoFile, setWaiverIdPhotoFile] = useState<File | null>(null);
   const [waiverPhotoOptOut, setWaiverPhotoOptOut] = useState(false);
   const [waiverIsMinor, setWaiverIsMinor] = useState(false);
   const [waiverMinorName, setWaiverMinorName] = useState('');
@@ -59,7 +60,10 @@ export default function BookingWizard() {
   const [waiverGuardianSignature, setWaiverGuardianSignature] = useState('');
   const [waiverGuardianName, setWaiverGuardianName] = useState('');
   const [waiverBoaterIdPhoto, setWaiverBoaterIdPhoto] = useState('');
+  const [waiverBoaterIdPhotoFile, setWaiverBoaterIdPhotoFile] = useState<File | null>(null);
   const [waiverLiabilityVideo, setWaiverLiabilityVideo] = useState('');
+  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [waiverScrolledToBottom, setWaiverScrolledToBottom] = useState(false);
   const waiverScrollRef = useRef<HTMLDivElement>(null);
   const idInputRef = useRef<HTMLInputElement>(null);
@@ -142,12 +146,14 @@ export default function BookingWizard() {
   const handleIdPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setWaiverIdPhotoFile(file);
     compressImage(file, (dataUrl) => setWaiverIdPhoto(dataUrl));
   };
 
   const handleBoaterIdUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setWaiverBoaterIdPhotoFile(file);
     compressImage(file, (dataUrl) => setWaiverBoaterIdPhoto(dataUrl));
   };
 
@@ -177,10 +183,97 @@ export default function BookingWizard() {
     return base;
   };
 
+  // Helper: upload a file via FormData to our upload API
+  const uploadFileToStorage = async (file: File | Blob, type: string, bookingId: string): Promise<string | null> => {
+    const formData = new FormData();
+    const fileName = file instanceof File ? file.name : `${type}.${type === 'video' ? 'webm' : 'png'}`;
+    formData.append('file', file, fileName);
+    formData.append('type', type);
+    formData.append('bookingId', bookingId);
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.path || null;
+    } catch { return null; }
+  };
+
+  // Helper: upload a data URL (signature) as a file
+  const uploadDataUrlToStorage = async (dataUrl: string, type: string, bookingId: string): Promise<string | null> => {
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      return uploadFileToStorage(blob, type, bookingId);
+    } catch { return null; }
+  };
+
+  // Helper: upload video via presigned URL (bypasses Vercel body limits)
+  const uploadVideoToStorage = async (blob: Blob, bookingId: string): Promise<string | null> => {
+    try {
+      const presignRes = await fetch('/api/upload/presigned', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, type: 'video', ext: 'webm' }),
+      });
+      if (!presignRes.ok) return null;
+      const { uploadUrl, storagePath } = await presignRes.json();
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'video/webm', 'x-upsert': 'true' },
+        body: blob,
+      });
+      if (!uploadRes.ok) {
+        // Fallback: try as FormData upload
+        return uploadFileToStorage(blob, 'video', bookingId);
+      }
+      return storagePath;
+    } catch {
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setError('');
     try {
+      // Generate a temporary booking ID for file uploads
+      const tempBookingId = `bk-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`;
+
+      // Upload files to storage
+      setUploadProgress('Uploading ID photo...');
+      const idPhotoPath = waiverIdPhotoFile
+        ? await uploadFileToStorage(waiverIdPhotoFile, 'id-photo', tempBookingId)
+        : null;
+
+      setUploadProgress('Uploading boater ID...');
+      const boaterIdPath = waiverBoaterIdPhotoFile
+        ? await uploadFileToStorage(waiverBoaterIdPhotoFile, 'boater-id', tempBookingId)
+        : null;
+
+      setUploadProgress('Uploading waiver signature...');
+      const signaturePath = waiverSignature
+        ? await uploadDataUrlToStorage(waiverSignature, 'signature', tempBookingId)
+        : null;
+
+      setUploadProgress('Uploading safety signature...');
+      const safetySignaturePath = safetySignature
+        ? await uploadDataUrlToStorage(safetySignature, 'safety-signature', tempBookingId)
+        : null;
+
+      let guardianSignaturePath: string | null = null;
+      if (waiverIsMinor && waiverGuardianSignature) {
+        setUploadProgress('Uploading guardian signature...');
+        guardianSignaturePath = await uploadDataUrlToStorage(waiverGuardianSignature, 'guardian-signature', tempBookingId);
+      }
+
+      let videoPath: string | null = null;
+      if (videoBlob) {
+        setUploadProgress('Uploading liability video...');
+        videoPath = await uploadVideoToStorage(videoBlob, tempBookingId);
+      }
+
+      setUploadProgress('Processing payment...');
+
       const bookingPayload = {
         jetSkiId: selectBoth ? 'both' : selectedJetSki!.id,
         date: selectedDate,
@@ -193,17 +286,17 @@ export default function BookingWizard() {
           participantDOB: waiverDOB,
           participantAddress: waiverAddress,
           driversLicenseId: waiverLicenseId,
-          signatureDataUrl: waiverSignature,
-          idPhotoDataUrl: waiverIdPhoto,
-          boaterIdPhotoDataUrl: waiverBoaterIdPhoto,
-          liabilityVideoRecorded: !!waiverLiabilityVideo,
-          safetyBriefingSignatureDataUrl: safetySignature,
+          signaturePath: signaturePath,
+          idPhotoPath: idPhotoPath,
+          boaterIdPhotoPath: boaterIdPath,
+          liabilityVideoPath: videoPath,
+          safetySignaturePath: safetySignaturePath,
+          guardianSignaturePath: guardianSignaturePath,
           safetyBriefingSignedAt: new Date().toISOString(),
           photoVideoOptOut: waiverPhotoOptOut,
           isMinor: waiverIsMinor,
           minorName: waiverIsMinor ? waiverMinorName : undefined,
           minorAge: waiverIsMinor ? waiverMinorAge : undefined,
-          guardianSignatureDataUrl: waiverIsMinor ? waiverGuardianSignature : undefined,
           guardianName: waiverIsMinor ? waiverGuardianName : undefined,
           signedAt: new Date().toISOString(),
         },
@@ -215,7 +308,7 @@ export default function BookingWizard() {
         body: JSON.stringify(bookingPayload),
       });
 
-      // Handle non-JSON responses gracefully (e.g., HTML error pages from body size limits)
+      // Handle non-JSON responses gracefully
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
         throw new Error('Server error. Please try again.');
@@ -227,16 +320,17 @@ export default function BookingWizard() {
       // If Stripe checkout URL is returned, redirect to payment
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
-        return; // Don't setSubmitting(false) — we're navigating away
+        return;
       }
 
-      // No-payment mode (Stripe not configured) — show success inline
+      // No-payment mode
       setBookingResult(data.booking);
       setStep('success');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     }
     setSubmitting(false);
+    setUploadProgress('');
   };
 
   // Calendar rendering
@@ -724,6 +818,7 @@ export default function BookingWizard() {
               {/* Video Liability Statement */}
               <VideoRecorder
                 onVideoChange={setWaiverLiabilityVideo}
+                onVideoBlob={(blob) => setVideoBlob(blob)}
                 statementText={LIABILITY_STATEMENT}
               />
 
@@ -917,7 +1012,7 @@ export default function BookingWizard() {
               {submitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Booking...
+                  {uploadProgress || 'Booking...'}
                 </>
               ) : (
                 <>

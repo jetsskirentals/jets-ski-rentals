@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/store';
+import { getReviews, createReview, updateReview, deleteReview } from '@/lib/db';
 import { generateId } from '@/lib/utils';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const all = searchParams.get('all');
-
-  if (all === 'true') {
-    return NextResponse.json({ reviews: store.reviews });
-  }
-
-  // Public: only approved reviews
-  return NextResponse.json({ reviews: store.reviews.filter(r => r.approved) });
+  const all = searchParams.get('all') === 'true';
+  const reviews = await getReviews(all);
+  return NextResponse.json({ reviews });
 }
 
 export async function POST(request: NextRequest) {
@@ -28,10 +23,10 @@ export async function POST(request: NextRequest) {
     rating: Math.min(5, Math.max(1, rating)),
     comment,
     date: new Date().toISOString().split('T')[0],
-    approved: false, // Requires admin approval
+    approved: false,
   };
 
-  store.reviews.push(review);
+  await createReview(review);
   return NextResponse.json({ review }, { status: 201 });
 }
 
@@ -39,10 +34,8 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json();
   const { id, approved } = body;
 
-  const review = store.reviews.find(r => r.id === id);
+  const review = await updateReview(id, approved);
   if (!review) return NextResponse.json({ error: 'Review not found' }, { status: 404 });
-
-  if (typeof approved === 'boolean') review.approved = approved;
 
   return NextResponse.json({ review });
 }
@@ -50,10 +43,10 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
-  const idx = store.reviews.findIndex(r => r.id === id);
-  if (idx === -1) return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+  const deleted = await deleteReview(id);
+  if (!deleted) return NextResponse.json({ error: 'Review not found' }, { status: 404 });
 
-  store.reviews.splice(idx, 1);
   return NextResponse.json({ success: true });
 }

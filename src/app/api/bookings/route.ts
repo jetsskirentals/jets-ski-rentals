@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/store';
+import { getBookings, getTimeSlots, getAvailableStartTimes, getJetSkis, isAvailable, createBooking, updateBookingStatus } from '@/lib/db';
 import { generateId, isWeekendDate } from '@/lib/utils';
 
 export async function GET(request: NextRequest) {
@@ -10,26 +10,27 @@ export async function GET(request: NextRequest) {
 
   // If requesting available times for a specific jet ski, date, and duration
   if (date && jetSkiId && timeSlotId) {
-    const slot = store.timeSlots.find(ts => ts.id === timeSlotId);
+    const slots = await getTimeSlots();
+    const slot = slots.find(ts => ts.id === timeSlotId);
     if (!slot) return NextResponse.json({ error: 'Invalid time slot' }, { status: 400 });
 
     let times: string[];
 
-    // "both" means find times available for ALL jet skis simultaneously
     if (jetSkiId === 'both') {
-      const availableJetSkis = store.jetSkis.filter(js => js.status === 'available');
-      const timeSets = availableJetSkis.map(js => store.getAvailableStartTimes(js.id, date, slot.durationMinutes));
-      // Intersection: only times available for every jet ski
+      const allJetSkis = await getJetSkis();
+      const availableJetSkis = allJetSkis.filter(js => js.status === 'available');
+      const timeSets = await Promise.all(
+        availableJetSkis.map(js => getAvailableStartTimes(js.id, date, slot.durationMinutes))
+      );
       times = timeSets.reduce((acc, t) => acc.filter(time => t.includes(time)));
     } else {
-      times = store.getAvailableStartTimes(jetSkiId, date, slot.durationMinutes);
+      times = await getAvailableStartTimes(jetSkiId, date, slot.durationMinutes);
     }
 
-    // Filter out past times if the requested date is today (using client timezone offset)
-    const tzOffset = searchParams.get('tzOffset'); // minutes offset from UTC (e.g., 300 for EST)
+    // Filter out past times if the requested date is today
+    const tzOffset = searchParams.get('tzOffset');
     const now = new Date();
     if (tzOffset) {
-      // Calculate client's local time using their timezone offset
       const clientNow = new Date(now.getTime() - parseInt(tzOffset) * 60000);
       const clientDateStr = clientNow.toISOString().split('T')[0];
       if (date === clientDateStr) {
@@ -47,29 +48,29 @@ export async function GET(request: NextRequest) {
   }
 
   // Return all bookings (admin)
-  return NextResponse.json({ bookings: store.bookings });
+  const bookings = await getBookings();
+  return NextResponse.json({ bookings });
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { jetSkiId, date, timeSlotId, startTime, customerName, customerEmail, customerPhone, isManual, waiver } = body;
+  const { jetSkiId, date, timeSlotId, startTime, customerName, customerEmail, customerPhone, isManual } = body;
 
-  // Validate
   if (!jetSkiId || !date || !timeSlotId || !startTime || !customerName || !customerEmail) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const slot = store.timeSlots.find(ts => ts.id === timeSlotId);
+  const slots = await getTimeSlots();
+  const slot = slots.find(ts => ts.id === timeSlotId);
   if (!slot) return NextResponse.json({ error: 'Invalid time slot' }, { status: 400 });
 
-  // Check availability
-  if (!store.isAvailable(jetSkiId, date, startTime, slot.durationMinutes)) {
+  if (!(await isAvailable(jetSkiId, date, startTime, slot.durationMinutes))) {
     return NextResponse.json({ error: 'This slot is no longer available' }, { status: 409 });
   }
 
   const totalPrice = isWeekendDate(date) ? slot.weekendPrice : slot.weekdayPrice;
 
-  const booking: typeof store.bookings[0] = {
+  const booking = {
     id: `bk-${generateId()}`,
     jetSkiId,
     date,
@@ -79,13 +80,12 @@ export async function POST(request: NextRequest) {
     customerEmail,
     customerPhone: customerPhone || '',
     totalPrice,
-    status: 'confirmed',
+    status: 'confirmed' as const,
     createdAt: new Date().toISOString(),
     isManual: isManual || false,
-    waiver: waiver || undefined,
   };
 
-  store.bookings.push(booking);
+  await createBooking(booking);
   return NextResponse.json({ booking }, { status: 201 });
 }
 
@@ -93,10 +93,8 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json();
   const { id, status } = body;
 
-  const booking = store.bookings.find(b => b.id === id);
+  const booking = await updateBookingStatus(id, status);
   if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
-
-  if (status) booking.status = status;
 
   return NextResponse.json({ booking });
 }

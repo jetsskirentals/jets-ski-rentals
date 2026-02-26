@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/store';
+import { getSettings, updateSettings } from '@/lib/db';
 
 export async function GET() {
-  return NextResponse.json({ settings: store.settings });
+  const settings = await getSettings();
+  return NextResponse.json({ settings });
 }
 
 export async function PATCH(request: NextRequest) {
   const body = await request.json();
-  store.settings = { ...store.settings, ...body };
-  return NextResponse.json({ settings: store.settings });
+  const settings = await updateSettings(body);
+  return NextResponse.json({ settings });
 }

@@ -71,7 +71,39 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-// ─── Stripe Booking interface ───
+// ─── Storage File Components ───
+
+function StorageImage({ path, alt, className }: { path: string; alt: string; className?: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch(`/api/admin/file?path=${encodeURIComponent(path)}`)
+      .then(r => r.json())
+      .then(data => { setUrl(data.url || null); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [path]);
+  if (loading) return <span className="text-xs text-gray-400">Loading...</span>;
+  if (!url) return <span className="text-xs text-gray-400">File not available</span>;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt={alt} className={className || 'h-32 w-auto rounded'} />;
+}
+
+function StorageVideo({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch(`/api/admin/file?path=${encodeURIComponent(path)}`)
+      .then(r => r.json())
+      .then(data => { setUrl(data.url || null); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [path]);
+  if (loading) return <span className="text-xs text-gray-400">Loading video...</span>;
+  if (!url) return <span className="text-xs text-gray-400">Video not available</span>;
+  // eslint-disable-next-line jsx-a11y/media-has-caption
+  return <video src={url} controls className="w-full rounded max-h-64" playsInline />;
+}
+
+// ─── Stripe Booking interface (for backward compat) ───
 interface StripeBooking {
   id: string;
   date: string;
@@ -94,8 +126,8 @@ interface WaiverData {
   participantDOB: string;
   participantAddress: string;
   driversLicenseId: string;
-  signatureDataUrl: string;
-  idPhotoDataUrl: string;
+  signatureDataUrl?: string;
+  idPhotoDataUrl?: string;
   boaterIdPhotoDataUrl?: string;
   liabilityVideoDataUrl?: string;
   liabilityVideoRecorded?: boolean;
@@ -108,6 +140,13 @@ interface WaiverData {
   guardianSignatureDataUrl?: string;
   guardianName?: string;
   signedAt: string;
+  // Supabase Storage paths (new)
+  signaturePath?: string;
+  idPhotoPath?: string;
+  boaterIdPhotoPath?: string;
+  liabilityVideoPath?: string;
+  safetySignaturePath?: string;
+  guardianSignaturePath?: string;
 }
 interface Booking {
   id: string; jetSkiId: string; date: string; timeSlotId: string;
@@ -183,6 +222,21 @@ export default function AdminPage() {
 
   // Waiver viewer
   const [expandedWaivers, setExpandedWaivers] = useState<Set<string>>(new Set());
+  const [loadedWaivers, setLoadedWaivers] = useState<Record<string, WaiverData>>({});
+
+  // Load waiver data from API when expanding
+  const loadWaiver = async (bookingId: string) => {
+    if (loadedWaivers[bookingId]) return;
+    try {
+      const res = await fetch(`/api/admin/waiver?bookingId=${bookingId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.waiver) {
+          setLoadedWaivers(prev => ({ ...prev, [bookingId]: data.waiver }));
+        }
+      }
+    } catch { /* ignore */ }
+  };
 
   const fetchAll = async () => {
     setLoading(true);
@@ -531,11 +585,16 @@ export default function AdminPage() {
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="font-bold text-brand-600">${b.totalPrice}</span>
-                            {b.waiver && (
+                            {!b.isManual && (
                               <button
                                 onClick={() => {
                                   const next = new Set(expandedWaivers);
-                                  if (isExpanded) next.delete(b.id); else next.add(b.id);
+                                  if (isExpanded) {
+                                    next.delete(b.id);
+                                  } else {
+                                    next.add(b.id);
+                                    loadWaiver(b.id);
+                                  }
                                   setExpandedWaivers(next);
                                 }}
                                 className="text-purple-600 hover:text-purple-800 text-xs font-medium flex items-center gap-1"
@@ -554,7 +613,10 @@ export default function AdminPage() {
                         </div>
 
                         {/* Expanded waiver details */}
-                        {isExpanded && b.waiver && (
+                        {isExpanded && (() => {
+                          const w = loadedWaivers[b.id] || b.waiver;
+                          if (!w) return <div className="border-t border-gray-100 bg-purple-50/30 p-4 text-sm text-gray-400">Loading waiver data...</div>;
+                          return (
                           <div className="border-t border-gray-100 bg-purple-50/30 p-4">
                             <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-1.5">
                               <FileCheck className="w-4 h-4" /> Signed Waiver Details
@@ -562,28 +624,28 @@ export default function AdminPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                               <div>
                                 <span className="text-gray-500 block text-xs mb-0.5">Date of Birth</span>
-                                <span className="text-gray-900 font-medium">{b.waiver.participantDOB}</span>
+                                <span className="text-gray-900 font-medium">{w.participantDOB}</span>
                               </div>
                               <div>
                                 <span className="text-gray-500 block text-xs mb-0.5">Address</span>
-                                <span className="text-gray-900 font-medium">{b.waiver.participantAddress}</span>
+                                <span className="text-gray-900 font-medium">{w.participantAddress}</span>
                               </div>
                               <div>
                                 <span className="text-gray-500 block text-xs mb-0.5">Driver&apos;s License</span>
-                                <span className="text-gray-900 font-medium">{b.waiver.driversLicenseId}</span>
+                                <span className="text-gray-900 font-medium">{w.driversLicenseId}</span>
                               </div>
                               <div>
                                 <span className="text-gray-500 block text-xs mb-0.5">Signed At</span>
-                                <span className="text-gray-900 font-medium">{new Date(b.waiver.signedAt).toLocaleString()}</span>
+                                <span className="text-gray-900 font-medium">{w.signedAt ? new Date(w.signedAt).toLocaleString() : 'N/A'}</span>
                               </div>
                               <div>
                                 <span className="text-gray-500 block text-xs mb-0.5">Photo/Video Opt-Out</span>
-                                <span className="text-gray-900 font-medium">{b.waiver.photoVideoOptOut ? 'Yes — opted out' : 'No — consented'}</span>
+                                <span className="text-gray-900 font-medium">{w.photoVideoOptOut ? 'Yes — opted out' : 'No — consented'}</span>
                               </div>
-                              {b.waiver.isMinor && (
+                              {w.isMinor && (
                                 <div>
                                   <span className="text-gray-500 block text-xs mb-0.5">Minor Participant</span>
-                                  <span className="text-gray-900 font-medium">{b.waiver.minorName}, age {b.waiver.minorAge} (Guardian: {b.waiver.guardianName})</span>
+                                  <span className="text-gray-900 font-medium">{w.minorName}, age {w.minorAge} (Guardian: {w.guardianName})</span>
                                 </div>
                               )}
                             </div>
@@ -593,68 +655,85 @@ export default function AdminPage() {
                               <div>
                                 <span className="text-gray-500 block text-xs mb-1.5">Signature</span>
                                 <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
-                                  {b.waiver.signatureDataUrl
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    ? <img src={b.waiver.signatureDataUrl} alt="Customer signature" className="h-20 w-auto" />
-                                    : <span className="text-gray-400 text-xs">No signature captured</span>
+                                  {w.signaturePath
+                                    ? <StorageImage path={w.signaturePath} alt="Customer signature" className="h-20 w-auto" />
+                                    : w.signatureDataUrl
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      ? <img src={w.signatureDataUrl} alt="Customer signature" className="h-20 w-auto" />
+                                      : <span className="text-gray-400 text-xs">No signature captured</span>
                                   }
                                 </div>
                               </div>
-                              {b.waiver.guardianSignatureDataUrl && (
+                              {(w.guardianSignaturePath || w.guardianSignatureDataUrl) && (
                                 <div>
                                   <span className="text-gray-500 block text-xs mb-1.5">Guardian Signature</span>
                                   <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={b.waiver.guardianSignatureDataUrl} alt="Guardian signature" className="h-20 w-auto" />
+                                    {w.guardianSignaturePath
+                                      ? <StorageImage path={w.guardianSignaturePath} alt="Guardian signature" className="h-20 w-auto" />
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      : <img src={w.guardianSignatureDataUrl!} alt="Guardian signature" className="h-20 w-auto" />
+                                    }
                                   </div>
                                 </div>
                               )}
                               <div>
                                 <span className="text-gray-500 block text-xs mb-1.5">Photo ID</span>
                                 <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
-                                  {b.waiver.idPhotoDataUrl
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    ? <img src={b.waiver.idPhotoDataUrl} alt="Customer ID" className="h-32 w-auto rounded" />
-                                    : <span className="text-gray-400 text-xs">No ID photo uploaded</span>
+                                  {w.idPhotoPath
+                                    ? <StorageImage path={w.idPhotoPath} alt="Customer ID" />
+                                    : w.idPhotoDataUrl
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      ? <img src={w.idPhotoDataUrl} alt="Customer ID" className="h-32 w-auto rounded" />
+                                      : <span className="text-gray-400 text-xs">No ID photo uploaded</span>
                                   }
                                 </div>
                               </div>
-                              {b.waiver.boaterIdPhotoDataUrl && (
+                              {(w.boaterIdPhotoPath || w.boaterIdPhotoDataUrl) && (
                                 <div>
                                   <span className="text-gray-500 block text-xs mb-1.5">Boater ID</span>
                                   <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={b.waiver.boaterIdPhotoDataUrl} alt="Boater ID" className="h-32 w-auto rounded" />
+                                    {w.boaterIdPhotoPath
+                                      ? <StorageImage path={w.boaterIdPhotoPath} alt="Boater ID" />
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      : <img src={w.boaterIdPhotoDataUrl!} alt="Boater ID" className="h-32 w-auto rounded" />
+                                    }
                                   </div>
                                 </div>
                               )}
                             </div>
 
                             {/* Safety Briefing */}
-                            {b.waiver.safetyBriefingSignatureDataUrl && (
+                            {(w.safetySignaturePath || w.safetyBriefingSignatureDataUrl) && (
                               <div className="mt-4">
                                 <span className="text-gray-500 block text-xs mb-1.5">Safety Briefing Acknowledgment</span>
                                 <div className="flex items-center gap-4">
                                   <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={b.waiver.safetyBriefingSignatureDataUrl} alt="Safety briefing signature" className="h-16 w-auto" />
+                                    {w.safetySignaturePath
+                                      ? <StorageImage path={w.safetySignaturePath} alt="Safety briefing signature" className="h-16 w-auto" />
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      : <img src={w.safetyBriefingSignatureDataUrl!} alt="Safety briefing signature" className="h-16 w-auto" />
+                                    }
                                   </div>
-                                  {b.waiver.safetyBriefingSignedAt && (
-                                    <span className="text-xs text-gray-500">Signed: {new Date(b.waiver.safetyBriefingSignedAt).toLocaleString()}</span>
+                                  {w.safetyBriefingSignedAt && (
+                                    <span className="text-xs text-gray-500">Signed: {new Date(w.safetyBriefingSignedAt).toLocaleString()}</span>
                                   )}
                                 </div>
                               </div>
                             )}
 
                             {/* Liability Video */}
-                            {(b.waiver.liabilityVideoDataUrl || b.waiver.liabilityVideoRecorded) && (
+                            {(w.liabilityVideoPath || w.liabilityVideoDataUrl || w.liabilityVideoRecorded) && (
                               <div className="mt-4">
                                 <span className="text-gray-500 block text-xs mb-1.5">Liability Statement Video</span>
-                                {b.waiver.liabilityVideoDataUrl ? (
+                                {w.liabilityVideoPath ? (
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block max-w-md">
+                                    <StorageVideo path={w.liabilityVideoPath} />
+                                  </div>
+                                ) : w.liabilityVideoDataUrl ? (
                                   <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block max-w-md">
                                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                                     <video
-                                      src={b.waiver.liabilityVideoDataUrl}
+                                      src={w.liabilityVideoDataUrl}
                                       controls
                                       className="w-full rounded max-h-64"
                                       playsInline
@@ -669,7 +748,8 @@ export default function AdminPage() {
                               </div>
                             )}
                           </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     );
                   })}

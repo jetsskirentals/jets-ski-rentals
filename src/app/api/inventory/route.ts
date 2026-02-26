@@ -1,30 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/store';
+import { getJetSkis, getTimeSlots, getBlackoutDates, updateJetSkis, updateTimeSlots, updateBlackoutDates } from '@/lib/db';
 
 export async function GET() {
-  return NextResponse.json({
-    jetSkis: store.jetSkis,
-    timeSlots: store.timeSlots,
-    blackoutDates: store.blackoutDates,
-  });
+  const [jetSkis, timeSlots, blackoutDates] = await Promise.all([
+    getJetSkis(),
+    getTimeSlots(),
+    getBlackoutDates(),
+  ]);
+  return NextResponse.json({ jetSkis, timeSlots, blackoutDates });
 }
 
 export async function PATCH(request: NextRequest) {
   const body = await request.json();
 
-  if (body.jetSkis) {
-    store.jetSkis = body.jetSkis;
-  }
-  if (body.timeSlots) {
-    store.timeSlots = body.timeSlots;
-  }
-  if (body.blackoutDates) {
-    store.blackoutDates = body.blackoutDates;
-  }
+  if (body.jetSkis) await updateJetSkis(body.jetSkis);
+  if (body.timeSlots) await updateTimeSlots(body.timeSlots);
+  if (body.blackoutDates) await updateBlackoutDates(body.blackoutDates);
 
-  return NextResponse.json({
-    jetSkis: store.jetSkis,
-    timeSlots: store.timeSlots,
-    blackoutDates: store.blackoutDates,
-  });
+  const [jetSkis, timeSlots, blackoutDates] = await Promise.all([
+    getJetSkis(),
+    getTimeSlots(),
+    getBlackoutDates(),
+  ]);
+  return NextResponse.json({ jetSkis, timeSlots, blackoutDates });
 }
