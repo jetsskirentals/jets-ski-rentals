@@ -9,7 +9,7 @@ const features = [
   {
     icon: Clock,
     title: 'Flexible Rentals',
-    description: 'From quick 15-minute rides to 2-hour adventures — pick what suits you.',
+    description: 'Choose between 1-hour or 2-hour adventures — pick what suits you.',
   },
   {
     icon: Smile,

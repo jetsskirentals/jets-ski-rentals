@@ -3,25 +3,11 @@ import { Clock, CheckCircle } from 'lucide-react';
 
 const plans = [
   {
-    duration: '15 min',
-    weekday: '$45',
-    weekend: '$55',
-    description: 'Quick taste of the action',
-    popular: false,
-  },
-  {
-    duration: '30 min',
-    weekday: '$75',
-    weekend: '$95',
-    description: 'Our most popular option',
-    popular: true,
-  },
-  {
     duration: '1 hour',
     weekday: '$125',
     weekend: '$155',
     description: 'Explore the waters at your pace',
-    popular: false,
+    popular: true,
   },
   {
     duration: '2 hours',
@@ -43,7 +29,7 @@ export default function PricingSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
           {plans.map((plan) => (
             <div
               key={plan.duration}

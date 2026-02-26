@@ -20,7 +20,7 @@ export default function ContactSection() {
               </div>
               <div>
                 <h4 className="font-semibold text-brand-900 mb-1">Location</h4>
-                <p className="text-sm text-brand-700/60">123 Beach Blvd<br />Coastal City, FL 33000</p>
+                <p className="text-sm text-brand-700/60">Grady Brown Park<br />Freeport, FL 32439</p>
               </div>
             </div>
 
@@ -40,7 +40,7 @@ export default function ContactSection() {
               </div>
               <div>
                 <h4 className="font-semibold text-brand-900 mb-1">Email</h4>
-                <p className="text-sm text-brand-700/60">info@getwetwithjet.com</p>
+                <p className="text-sm text-brand-700/60">jetsskirentalsllc@gmail.com</p>
               </div>
             </div>
 
