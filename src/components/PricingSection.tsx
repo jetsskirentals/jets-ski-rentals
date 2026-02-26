@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Clock, CheckCircle } from 'lucide-react';
+import { Clock, CheckCircle, Phone } from 'lucide-react';
 
 const plans = [
   {
@@ -16,6 +16,20 @@ const plans = [
     description: 'The ultimate jet ski experience',
     popular: false,
   },
+  {
+    duration: '3 hours',
+    weekday: '$285',
+    weekend: '$355',
+    description: 'Extended adventure on the water',
+    popular: false,
+  },
+  {
+    duration: '6 hours',
+    weekday: '$500',
+    weekend: '$625',
+    description: 'Full day of wave-riding fun',
+    popular: false,
+  },
 ];
 
 export default function PricingSection() {
@@ -29,7 +43,7 @@ export default function PricingSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
           {plans.map((plan) => (
             <div
               key={plan.duration}
@@ -83,6 +97,26 @@ export default function PricingSection() {
               </Link>
             </div>
           ))}
+        </div>
+
+        {/* Call for shorter rides */}
+        <div className="mt-10 max-w-xl mx-auto text-center">
+          <div className="card p-6 bg-brand-50/50 border border-brand-100">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Phone className="w-5 h-5 text-brand-600" />
+              <span className="font-bold text-brand-900">Looking for a shorter ride?</span>
+            </div>
+            <p className="text-sm text-brand-700/60 mb-3">
+              We offer rides under an hour too! Give us a call to check availability and pricing.
+            </p>
+            <a
+              href="tel:8502766063"
+              className="inline-flex items-center gap-2 text-brand-600 font-semibold hover:text-brand-800 transition-colors"
+            >
+              <Phone className="w-4 h-4" />
+              (850) 276-6063
+            </a>
+          </div>
         </div>
       </div>
     </section>
