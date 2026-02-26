@@ -36,8 +36,9 @@ export async function POST(request: NextRequest) {
   const totalPrice = pricePerJetSki * jetSkiIds.length;
   const jetSkiNames = jetSkiIds.map(id => store.jetSkis.find(js => js.id === id)?.name || 'Jet Ski').join(' & ');
 
-  // If Stripe is not configured, fall back to direct booking (no payment)
+  // If Stripe is not configured or key is invalid, fall back to direct booking (no payment)
   if (!stripe) {
+    console.warn('Stripe not initialized — check STRIPE_SECRET_KEY env var. Falling back to no-payment mode.');
     const bookings = jetSkiIds.map(jsId => ({
       id: `bk-${generateId()}`,
       jetSkiId: jsId,
