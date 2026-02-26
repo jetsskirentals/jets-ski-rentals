@@ -6,7 +6,10 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
 let stripe: Stripe | null = null;
 if (stripeSecretKey) {
   try {
-    stripe = new Stripe(stripeSecretKey);
+    stripe = new Stripe(stripeSecretKey, {
+      httpClient: Stripe.createNodeHttpClient(),
+      timeout: 30000,
+    });
   } catch (e) {
     console.error('Stripe init error:', e instanceof Error ? e.message : e);
     console.error('Key starts with:', stripeSecretKey.substring(0, 8));
