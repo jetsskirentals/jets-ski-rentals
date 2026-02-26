@@ -4,7 +4,12 @@ import { store } from '@/lib/store';
 import { generateId, isWeekendDate } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request data' }, { status: 400 });
+  }
   const {
     jetSkiId, date, timeSlotId, startTime,
     customerName, customerEmail, customerPhone,

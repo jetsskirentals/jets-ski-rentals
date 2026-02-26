@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   LayoutDashboard, CalendarDays, DollarSign, Star, Settings, Plus,
-  Waves, Users, Loader2, Trash2, Edit3, Save, X, FileCheck, Eye, ChevronDown, ChevronUp
+  Waves, Users, Loader2, Trash2, Edit3, Save, X, FileCheck, Eye, ChevronDown, ChevronUp, CheckCircle
 } from 'lucide-react';
 import { cn, formatTime } from '@/lib/utils';
 
@@ -18,6 +18,7 @@ interface WaiverData {
   idPhotoDataUrl: string;
   boaterIdPhotoDataUrl?: string;
   liabilityVideoDataUrl?: string;
+  liabilityVideoRecorded?: boolean;
   safetyBriefingSignatureDataUrl?: string;
   safetyBriefingSignedAt?: string;
   photoVideoOptOut: boolean;
@@ -512,18 +513,25 @@ export default function AdminPage() {
                             )}
 
                             {/* Liability Video */}
-                            {b.waiver.liabilityVideoDataUrl && (
+                            {(b.waiver.liabilityVideoDataUrl || b.waiver.liabilityVideoRecorded) && (
                               <div className="mt-4">
                                 <span className="text-gray-500 block text-xs mb-1.5">Liability Statement Video</span>
-                                <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block max-w-md">
-                                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                                  <video
-                                    src={b.waiver.liabilityVideoDataUrl}
-                                    controls
-                                    className="w-full rounded max-h-64"
-                                    playsInline
-                                  />
-                                </div>
+                                {b.waiver.liabilityVideoDataUrl ? (
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block max-w-md">
+                                    {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                                    <video
+                                      src={b.waiver.liabilityVideoDataUrl}
+                                      controls
+                                      className="w-full rounded max-h-64"
+                                      playsInline
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 inline-flex items-center gap-2 text-green-700 text-sm">
+                                    <CheckCircle className="w-4 h-4" />
+                                    Video recorded on device
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

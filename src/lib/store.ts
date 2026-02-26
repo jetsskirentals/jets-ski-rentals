@@ -24,7 +24,8 @@ export interface WaiverData {
   signatureDataUrl: string;
   idPhotoDataUrl: string;
   boaterIdPhotoDataUrl: string;
-  liabilityVideoDataUrl: string;
+  liabilityVideoDataUrl?: string;
+  liabilityVideoRecorded?: boolean;
   safetyBriefingSignatureDataUrl: string;
   safetyBriefingSignedAt: string;
   photoVideoOptOut: boolean;

@@ -5,10 +5,11 @@ import { Video, StopCircle, RotateCcw, Play, Mic } from 'lucide-react';
 
 interface VideoRecorderProps {
   onVideoChange: (dataUrl: string) => void;
+  onVideoRecorded?: (recorded: boolean) => void;
   statementText: string;
 }
 
-export default function VideoRecorder({ onVideoChange, statementText }: VideoRecorderProps) {
+export default function VideoRecorder({ onVideoChange, onVideoRecorded, statementText }: VideoRecorderProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -79,12 +80,9 @@ export default function VideoRecorder({ onVideoChange, statementText }: VideoRec
       const url = URL.createObjectURL(blob);
       setRecordedUrl(url);
 
-      // Convert to data URL for storage
-      const reader = new FileReader();
-      reader.onload = () => {
-        onVideoChange(reader.result as string);
-      };
-      reader.readAsDataURL(blob);
+      // Signal that video was recorded (lightweight flag instead of full data URL)
+      onVideoChange('recorded');
+      if (onVideoRecorded) onVideoRecorded(true);
 
       // Stop camera stream
       if (streamRef.current) {

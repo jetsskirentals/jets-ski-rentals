@@ -117,24 +117,38 @@ export default function BookingWizard() {
     return selectBoth ? base * 2 : base;
   };
 
+  // Compress image to max ~800px wide, JPEG quality 0.6 (~50-150KB output)
+  const compressImage = (file: File, callback: (dataUrl: string) => void) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => {
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxWidth = 800;
+        const scale = Math.min(1, maxWidth / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          callback(canvas.toDataURL('image/jpeg', 0.6));
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleIdPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setWaiverIdPhoto(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    compressImage(file, (dataUrl) => setWaiverIdPhoto(dataUrl));
   };
 
   const handleBoaterIdUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setWaiverBoaterIdPhoto(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    compressImage(file, (dataUrl) => setWaiverBoaterIdPhoto(dataUrl));
   };
 
   const handleWaiverScroll = () => {
@@ -182,7 +196,7 @@ export default function BookingWizard() {
           signatureDataUrl: waiverSignature,
           idPhotoDataUrl: waiverIdPhoto,
           boaterIdPhotoDataUrl: waiverBoaterIdPhoto,
-          liabilityVideoDataUrl: waiverLiabilityVideo,
+          liabilityVideoRecorded: !!waiverLiabilityVideo,
           safetyBriefingSignatureDataUrl: safetySignature,
           safetyBriefingSignedAt: new Date().toISOString(),
           photoVideoOptOut: waiverPhotoOptOut,
@@ -200,6 +214,13 @@ export default function BookingWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bookingPayload),
       });
+
+      // Handle non-JSON responses gracefully (e.g., HTML error pages from body size limits)
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('Server error. Please try again.');
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
