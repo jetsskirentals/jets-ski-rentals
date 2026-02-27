@@ -22,6 +22,21 @@ export const metadata: Metadata = {
     title: "Jet's Ski Rentals | Book Your Jet Ski Adventure",
     description: "Reserve your jet ski online in seconds. Choose your date, pick your ride, and hit the waves!",
     type: "website",
+    url: "https://getwetwithjet.com",
+    images: [
+      {
+        url: "https://getwetwithjet.com/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Jet's Ski Rentals",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Jet's Ski Rentals | Book Your Jet Ski Adventure",
+    description: "Reserve your jet ski online in seconds. Choose your date, pick your ride, and hit the waves!",
+    images: ["https://getwetwithjet.com/og-image.png"],
   },
 };
 
