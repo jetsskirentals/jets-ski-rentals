@@ -166,7 +166,32 @@ export async function getBookings(): Promise<Booking[]> {
   if (!hasDB()) return store.bookings;
   const { data, error } = await supabase!.from('bookings').select('*').order('created_at', { ascending: false });
   if (error) { console.error('getBookings error:', error); return store.bookings; }
-  return data.map(mapBookingRow);
+
+  // Fetch which bookings have waivers
+  const { data: waiverRows } = await supabase!.from('waivers').select('booking_id, signed_at');
+  const waiverMap = new Map<string, string>();
+  if (waiverRows) {
+    for (const w of waiverRows) {
+      waiverMap.set(w.booking_id, w.signed_at || '');
+    }
+  }
+
+  return data.map(r => {
+    const booking = mapBookingRow(r);
+    if (waiverMap.has(booking.id)) {
+      // Attach minimal waiver stub so admin UI knows a waiver exists
+      booking.waiver = {
+        participantDOB: '',
+        participantAddress: '',
+        driversLicenseId: '',
+        photoVideoOptOut: false,
+        isMinor: false,
+        signedAt: waiverMap.get(booking.id) || '',
+        safetyBriefingSignedAt: '',
+      };
+    }
+    return booking;
+  });
 }
 
 export async function getBookingById(id: string): Promise<Booking | null> {
