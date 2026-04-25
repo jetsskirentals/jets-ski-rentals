@@ -125,7 +125,7 @@ export default function BookingWizard() {
     setLoading(true);
     const jetSkiParam = selectBoth ? 'both' : selectedJetSki!.id;
     const tzOffset = new Date().getTimezoneOffset();
-    fetch(`/api/bookings?date=${selectedDate}&jetSkiId=${jetSkiParam}&timeSlotId=${selectedSlot.id}&tzOffset=${tzOffset}`)
+    fetch(`/api/bookings?date=${selectedDate}&jetSkiId=${jetSkiParam}&timeSlotId=${selectedSlot.id}&tzOffset=${tzOffset}&_t=${Date.now()}`)
       .then(r => r.json())
       .then(data => {
         let times: string[] = data.availableTimes || [];

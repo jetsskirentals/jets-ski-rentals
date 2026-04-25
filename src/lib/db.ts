@@ -268,13 +268,20 @@ export async function isAvailable(jetSkiId: string, date: string, startTime: str
   const blackouts = await getBlackoutDates();
   if (blackouts.some(bd => bd.date === date)) return false;
 
-  // Check conflicting bookings
+  // Auto-cancel stale pending bookings (older than 30 minutes)
+  const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  await supabase!.from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('status', 'pending')
+    .lt('created_at', thirtyMinAgo);
+
+  // Check conflicting bookings (only confirmed and recent pending)
   const slots = await getTimeSlots();
   const { data: existingBookings } = await supabase!.from('bookings')
     .select('start_time, time_slot_id')
     .eq('jet_ski_id', jetSkiId)
     .eq('date', date)
-    .neq('status', 'cancelled');
+    .in('status', ['confirmed', 'pending']);
 
   if (!existingBookings) return true;
 

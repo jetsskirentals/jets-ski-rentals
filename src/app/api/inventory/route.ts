@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getJetSkis, getTimeSlots, getBlackoutDates, updateJetSkis, updateTimeSlots, updateBlackoutDates } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const [jetSkis, timeSlots, blackoutDates] = await Promise.all([
     getJetSkis(),

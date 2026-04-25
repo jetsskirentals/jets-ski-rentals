@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBookings, getTimeSlots, getAvailableStartTimes, getJetSkis, isAvailable, createBooking, updateBookingStatus } from '@/lib/db';
 import { generateId, isWeekendDate } from '@/lib/utils';
 
+export const dynamic = 'force-dynamic';
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+  'Vercel-CDN-Cache-Control': 'no-store',
+};
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get('date');
@@ -44,12 +52,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ availableTimes: times });
+    return NextResponse.json({ availableTimes: times }, { headers: NO_CACHE_HEADERS });
   }
 
   // Return all bookings (admin)
   const bookings = await getBookings();
-  return NextResponse.json({ bookings });
+  return NextResponse.json({ bookings }, { headers: NO_CACHE_HEADERS });
 }
 
 export async function POST(request: NextRequest) {
