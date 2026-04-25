@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const {
     jetSkiId, date, timeSlotId, startTime,
     customerName, customerEmail, customerPhone,
-    waiver,
+    waiver, protectionTier,
   } = body;
 
   // Validate required fields
@@ -133,45 +133,63 @@ export async function POST(request: NextRequest) {
 
   // Create Stripe Checkout Session
   const baseUrl = request.headers.get('origin') || request.headers.get('referer')?.replace(/\/[^/]*$/, '') || 'http://localhost:3000';
+  const hasInsurance = protectionTier && protectionTier !== 'none';
+  const protectionPrices: Record<string, number> = { silver: 5000, gold: 10000, platinum: 20000 };
+  const protectionNames: Record<string, string> = { silver: 'Silver', gold: 'Gold', platinum: 'Platinum' };
+  const protectionDeductibles: Record<string, number> = { silver: 2000, gold: 1500, platinum: 1000 };
+
   const depositPerJetSki = 30000; // $300.00 in cents
   const rentalAmountCents = Math.round(pricePerJetSki * 100) * jetSkiIds.length;
-  const depositAmountCents = depositPerJetSki * jetSkiIds.length;
+  const depositAmountCents = hasInsurance ? 0 : depositPerJetSki * jetSkiIds.length;
+  const protectionAmountCents = hasInsurance ? (protectionPrices[protectionTier] || 0) * jetSkiIds.length : 0;
+
+  // Build line items
+  const lineItems: Array<{ price_data: { currency: string; product_data: { name: string; description: string }; unit_amount: number }; quantity: number }> = [
+    {
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: `Jet Ski Rental - ${slot.label}`,
+          description: `${jetSkiNames} on ${date} at ${startTime}`,
+        },
+        unit_amount: Math.round(pricePerJetSki * 100),
+      },
+      quantity: jetSkiIds.length,
+    },
+  ];
+
+  if (hasInsurance) {
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: `${protectionNames[protectionTier]} Damage Protection`,
+          description: `$${protectionDeductibles[protectionTier]?.toLocaleString()} deductible per jet ski`,
+        },
+        unit_amount: protectionPrices[protectionTier] || 0,
+      },
+      quantity: jetSkiIds.length,
+    });
+  } else {
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: 'Security Deposit (Hold Only)',
+          description: `$300 per jet ski — temporary hold, NOT charged. Released after rental.`,
+        },
+        unit_amount: depositPerJetSki,
+      },
+      quantity: jetSkiIds.length,
+    });
+  }
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sessionConfig: any = {
       customer_email: customerEmail,
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `Jet Ski Rental - ${slot.label}`,
-              description: `${jetSkiNames} on ${date} at ${startTime}`,
-            },
-            unit_amount: Math.round(pricePerJetSki * 100),
-          },
-          quantity: jetSkiIds.length,
-        },
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Security Deposit (Hold Only)',
-              description: `$300 per jet ski — temporary hold, NOT charged. Released after rental.`,
-            },
-            unit_amount: depositPerJetSki,
-          },
-          quantity: jetSkiIds.length,
-        },
-      ],
+      line_items: lineItems,
       mode: 'payment',
-      payment_intent_data: {
-        capture_method: 'manual',
-        metadata: {
-          rental_amount_cents: String(rentalAmountCents),
-          deposit_amount_cents: String(depositAmountCents),
-        },
-      },
       success_url: `${baseUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${primaryBookingId}`,
       cancel_url: `${baseUrl}/booking?cancelled=true`,
       metadata: {
@@ -182,10 +200,25 @@ export async function POST(request: NextRequest) {
         timeSlotId,
         startTime,
         customerName,
+        protectionTier: protectionTier || 'none',
         rentalAmountCents: String(rentalAmountCents),
         depositAmountCents: String(depositAmountCents),
+        protectionAmountCents: String(protectionAmountCents),
       },
-    });
+    };
+
+    // Only use manual capture when there's a deposit hold (no insurance)
+    if (!hasInsurance) {
+      sessionConfig.payment_intent_data = {
+        capture_method: 'manual',
+        metadata: {
+          rental_amount_cents: String(rentalAmountCents),
+          deposit_amount_cents: String(depositAmountCents),
+        },
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return NextResponse.json({
       checkoutUrl: session.url,

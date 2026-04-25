@@ -2,13 +2,30 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isBefore, startOfToday, isWeekend, parseISO, addMonths } from 'date-fns';
-import { ChevronLeft, ChevronRight, Clock, Waves, CheckCircle, Loader2, CreditCard, FileText, Upload, Camera, Anchor, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Waves, CheckCircle, Loader2, CreditCard, FileText, Upload, Camera, Anchor, ShieldCheck, Shield } from 'lucide-react';
 import { cn, formatTime } from '@/lib/utils';
 import SignaturePad from './SignaturePad';
 import WaiverText from './WaiverText';
 import SafetyBriefingText from './SafetyBriefingText';
 import LiveryWaiverText from './LiveryWaiverText';
+import FWCAttestationChecklist from './FWCAttestationChecklist';
 import VideoRecorder from './VideoRecorder';
+
+interface ProtectionTier {
+  id: string;
+  name: string;
+  price: number;
+  deductible: number;
+  color: string;
+  description: string;
+}
+
+const PROTECTION_TIERS: ProtectionTier[] = [
+  { id: 'none', name: 'No Coverage', price: 0, deductible: 0, color: 'gray', description: '$300 security deposit hold per jet ski' },
+  { id: 'silver', name: 'Silver', price: 50, deductible: 2000, color: 'slate', description: 'Basic damage protection' },
+  { id: 'gold', name: 'Gold', price: 100, deductible: 1500, color: 'amber', description: 'Enhanced damage protection' },
+  { id: 'platinum', name: 'Platinum', price: 200, deductible: 1000, color: 'purple', description: 'Premium damage protection' },
+];
 
 const LIABILITY_STATEMENT = "My name is _______. Today is _______. I am voluntarily renting and operating this jet ski. I confirm I received the safety briefing, understand the risks of injury or death, and will follow all rules and Florida boating laws. I accept full responsibility for myself and my passengers, assume all risks, and release the rental company and its employees from liability.";
 
@@ -27,7 +44,7 @@ interface JetSki {
   status: string;
 }
 
-type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'waiver' | 'safety' | 'deposit' | 'confirm' | 'success';
+type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'waiver' | 'safety' | 'fwc' | 'protection' | 'deposit' | 'confirm' | 'success';
 
 export default function BookingWizard() {
   const [step, setStep] = useState<Step>('date');
@@ -75,7 +92,14 @@ export default function BookingWizard() {
   const [safetySignature, setSafetySignature] = useState('');
   const safetyScrollRef = useRef<HTMLDivElement>(null);
 
-  // Deposit / livery waiver state
+  // FWC attestation state
+  const [fwcComplete, setFwcComplete] = useState(false);
+  const [fwcSignature, setFwcSignature] = useState('');
+
+  // Protection tier state
+  const [selectedProtection, setSelectedProtection] = useState<string>('');
+
+  // Deposit / livery waiver state (only shown if no insurance selected)
   const [depositScrolledToBottom, setDepositScrolledToBottom] = useState(false);
   const [depositSignature, setDepositSignature] = useState('');
   const depositScrollRef = useRef<HTMLDivElement>(null);
@@ -190,10 +214,17 @@ export default function BookingWizard() {
     }
   };
 
-  const getDepositTotal = () => {
-    const count = selectBoth ? jetSkis.length : 1;
-    return 300 * count;
+  const getJetSkiCount = () => selectBoth ? jetSkis.length : 1;
+
+  const getDepositTotal = () => 300 * getJetSkiCount();
+
+  const getProtectionPrice = () => {
+    const tier = PROTECTION_TIERS.find(t => t.id === selectedProtection);
+    if (!tier || tier.id === 'none') return 0;
+    return tier.price * getJetSkiCount();
   };
+
+  const getTotalWithProtection = () => getPrice() + getProtectionPrice();
 
   const isWaiverComplete = () => {
     const base = waiverDOB && waiverAddress && waiverLicenseId && waiverSignature && waiverIdPhoto && waiverBoaterIdPhoto && waiverLiabilityVideo;
@@ -302,6 +333,7 @@ export default function BookingWizard() {
         customerName,
         customerEmail,
         customerPhone,
+        protectionTier: selectedProtection || 'none',
         waiver: {
           participantDOB: waiverDOB,
           participantAddress: waiverAddress,
@@ -368,7 +400,9 @@ export default function BookingWizard() {
     { key: 'details', label: 'Details' },
     { key: 'waiver', label: 'Waiver' },
     { key: 'safety', label: 'Safety' },
-    { key: 'deposit', label: 'Deposit' },
+    { key: 'fwc', label: 'FWC' },
+    { key: 'protection', label: 'Protection' },
+    ...(selectedProtection === 'none' ? [{ key: 'deposit' as Step, label: 'Deposit' }] : []),
     { key: 'confirm', label: 'Confirm' },
   ];
 
@@ -834,6 +868,14 @@ export default function BookingWizard() {
                     <span className="text-xs text-gray-400">Florida Boater Safety ID Card or equivalent</span>
                   </button>
                 )}
+                <a
+                  href="https://www.boatus.org/fl-temp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-2 text-xs text-brand-500 hover:text-brand-700 underline text-center"
+                >
+                  Don&apos;t have your boating license? No problem! Take this quick course &rarr;
+                </a>
               </div>
 
               {/* Video Liability Statement */}
@@ -952,7 +994,7 @@ export default function BookingWizard() {
           <div className="flex justify-between mt-8">
             <button onClick={() => setStep('waiver')} className="btn-secondary">Back</button>
             <button
-              onClick={() => { setDepositScrolledToBottom(false); setStep('deposit'); }}
+              onClick={() => setStep('fwc')}
               disabled={!safetyScrolledToBottom || !safetySignature}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -962,7 +1004,140 @@ export default function BookingWizard() {
         </div>
       )}
 
-      {/* Step: Deposit / Livery Waiver */}
+      {/* Step: FWC Attestation */}
+      {step === 'fwc' && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Anchor className="w-5 h-5 text-brand-600" />
+            <h3 className="text-xl font-bold text-brand-900">FWC Pre-Rental Checklist</h3>
+          </div>
+          <p className="text-sm text-brand-600/60 mb-4">
+            Required by the Florida Fish and Wildlife Conservation Commission. Check each box to confirm you received instruction on the topic.
+          </p>
+
+          <div className="h-80 overflow-y-auto border border-gray-200 rounded-xl p-4 bg-gray-50/50">
+            <FWCAttestationChecklist onComplete={setFwcComplete} />
+          </div>
+
+          {fwcComplete && (
+            <div className="mt-4 space-y-4 max-w-lg mx-auto">
+              <SignaturePad label="Renter Signature — I acknowledge the pre-rental instruction *" onSignatureChange={setFwcSignature} />
+            </div>
+          )}
+
+          <div className="flex justify-between mt-8">
+            <button onClick={() => setStep('safety')} className="btn-secondary">Back</button>
+            <button
+              onClick={() => setStep('protection')}
+              disabled={!fwcComplete || !fwcSignature}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Protection Plan */}
+      {step === 'protection' && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="w-5 h-5 text-brand-600" />
+            <h3 className="text-xl font-bold text-brand-900">Damage Protection</h3>
+          </div>
+          <p className="text-sm text-brand-600/60 mb-6">
+            Choose a damage protection plan or proceed with a $300 security deposit hold per jet ski.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {PROTECTION_TIERS.map((tier) => {
+              const isSelected = selectedProtection === tier.id;
+              const perSki = tier.id === 'none' ? '' : `$${tier.price}/jet ski`;
+              const totalCost = tier.id === 'none' ? `$${getDepositTotal()} hold` : `$${tier.price * getJetSkiCount()} total`;
+              return (
+                <button
+                  key={tier.id}
+                  onClick={() => setSelectedProtection(tier.id)}
+                  className={cn(
+                    'p-4 rounded-xl border-2 text-left transition-all',
+                    isSelected
+                      ? tier.id === 'platinum' ? 'border-purple-500 bg-purple-50 shadow-lg'
+                      : tier.id === 'gold' ? 'border-amber-500 bg-amber-50 shadow-lg'
+                      : tier.id === 'silver' ? 'border-slate-400 bg-slate-50 shadow-lg'
+                      : 'border-gray-400 bg-gray-50 shadow-lg'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={cn(
+                      'font-bold text-sm',
+                      tier.id === 'platinum' ? 'text-purple-700' :
+                      tier.id === 'gold' ? 'text-amber-700' :
+                      tier.id === 'silver' ? 'text-slate-700' :
+                      'text-gray-700'
+                    )}>
+                      {tier.name}
+                    </span>
+                    {isSelected && <CheckCircle className="w-4 h-4 text-green-500" />}
+                  </div>
+                  {tier.id !== 'none' ? (
+                    <>
+                      <div className="text-lg font-bold text-brand-900">{perSki}</div>
+                      <div className="text-xs text-gray-500">${tier.deductible.toLocaleString()} deductible</div>
+                      <div className="text-xs text-gray-400 mt-1">{tier.description}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-lg font-bold text-brand-900">$0</div>
+                      <div className="text-xs text-gray-500">{tier.description}</div>
+                      <div className="text-xs text-amber-600 mt-1">You accept full financial responsibility</div>
+                    </>
+                  )}
+                  <div className="text-xs font-semibold text-brand-600 mt-2">{totalCost}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedProtection && selectedProtection !== 'none' && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3 mt-4">
+              <p className="text-xs text-green-800">
+                <strong>{PROTECTION_TIERS.find(t => t.id === selectedProtection)?.name} Protection:</strong> Your coverage costs <strong>${getProtectionPrice()}</strong> and will be added to your rental total.
+                If damage occurs, you only pay the <strong>${PROTECTION_TIERS.find(t => t.id === selectedProtection)?.deductible.toLocaleString()}</strong> deductible. No security deposit hold needed.
+              </p>
+            </div>
+          )}
+
+          {selectedProtection === 'none' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4">
+              <p className="text-xs text-amber-800">
+                <strong>No coverage selected.</strong> A <strong>${getDepositTotal()} security deposit hold</strong> will be placed on your card (not charged).
+                You will be responsible for all damages during your rental. You&apos;ll need to sign a damage responsibility waiver next.
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-between mt-8">
+            <button onClick={() => setStep('fwc')} className="btn-secondary">Back</button>
+            <button
+              onClick={() => {
+                if (selectedProtection === 'none') {
+                  setDepositScrolledToBottom(false);
+                  setStep('deposit');
+                } else {
+                  setStep('confirm');
+                }
+              }}
+              disabled={!selectedProtection}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {selectedProtection === 'none' ? 'Continue to Deposit Waiver' : 'Review Booking'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Deposit / Livery Waiver (only if no insurance) */}
       {step === 'deposit' && (
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -1008,7 +1183,7 @@ export default function BookingWizard() {
           )}
 
           <div className="flex justify-between mt-8">
-            <button onClick={() => setStep('safety')} className="btn-secondary">Back</button>
+            <button onClick={() => setStep('protection')} className="btn-secondary">Back</button>
             <button
               onClick={() => setStep('confirm')}
               disabled={!depositScrolledToBottom || !depositSignature}
@@ -1064,32 +1239,62 @@ export default function BookingWizard() {
                 <ShieldCheck className="w-4 h-4" /> Acknowledged
               </span>
             </div>
-            <div className="border-t-2 border-brand-200 pt-2" />
+            <div className="border-t border-brand-100" />
             <div className="flex justify-between items-center">
-              <span className="font-bold text-brand-900">Rental Total</span>
-              <span className="text-2xl font-bold text-brand-600">${getPrice()}</span>
+              <span className="text-sm text-brand-600/60">FWC Checklist</span>
+              <span className="font-semibold text-green-600 flex items-center gap-1">
+                <CheckCircle className="w-4 h-4" /> Complete
+              </span>
             </div>
             <div className="border-t border-brand-100" />
             <div className="flex justify-between items-center">
-              <span className="text-sm text-brand-600/60">Security Deposit</span>
-              <span className="font-semibold text-amber-600 flex items-center gap-1">
-                <CreditCard className="w-4 h-4" /> ${getDepositTotal()} hold
+              <span className="text-sm text-brand-600/60">Protection</span>
+              <span className="font-semibold text-brand-900">
+                {selectedProtection === 'none'
+                  ? 'No coverage'
+                  : `${PROTECTION_TIERS.find(t => t.id === selectedProtection)?.name} ($${getProtectionPrice()})`
+                }
               </span>
             </div>
+            {selectedProtection === 'none' && (
+              <>
+                <div className="border-t border-brand-100" />
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-brand-600/60">Security Deposit</span>
+                  <span className="font-semibold text-amber-600 flex items-center gap-1">
+                    <CreditCard className="w-4 h-4" /> ${getDepositTotal()} hold
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-brand-600/60">Damage Waiver</span>
+                  <span className="font-semibold text-green-600 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" /> Signed
+                  </span>
+                </div>
+              </>
+            )}
+            <div className="border-t-2 border-brand-200 pt-2" />
             <div className="flex justify-between items-center">
-              <span className="text-sm text-brand-600/60">Damage Waiver</span>
-              <span className="font-semibold text-green-600 flex items-center gap-1">
-                <CheckCircle className="w-4 h-4" /> Signed
-              </span>
+              <span className="font-bold text-brand-900">Total</span>
+              <span className="text-2xl font-bold text-brand-600">${getTotalWithProtection()}</span>
             </div>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4">
-            <p className="text-xs text-amber-800 text-center">
-              Your card will be charged <strong>${getPrice()}</strong> for the rental. The <strong>${getDepositTotal()}</strong> security deposit
-              is a temporary hold only and will be released after your rental.
-            </p>
-          </div>
+          {selectedProtection === 'none' ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4">
+              <p className="text-xs text-amber-800 text-center">
+                Your card will be charged <strong>${getPrice()}</strong> for the rental. A <strong>${getDepositTotal()}</strong> security deposit
+                hold will also be placed (not charged, released after rental).
+              </p>
+            </div>
+          ) : (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3 mt-4">
+              <p className="text-xs text-green-800 text-center">
+                Your card will be charged <strong>${getTotalWithProtection()}</strong> (rental + {PROTECTION_TIERS.find(t => t.id === selectedProtection)?.name} protection).
+                No security deposit hold needed.
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center">
@@ -1102,7 +1307,7 @@ export default function BookingWizard() {
           </p>
 
           <div className="flex justify-between mt-8">
-            <button onClick={() => setStep('deposit')} className="btn-secondary" disabled={submitting}>Back</button>
+            <button onClick={() => setStep(selectedProtection === 'none' ? 'deposit' : 'protection')} className="btn-secondary" disabled={submitting}>Back</button>
             <button
               onClick={handleSubmit}
               disabled={submitting}
