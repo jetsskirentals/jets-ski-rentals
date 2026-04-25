@@ -203,7 +203,12 @@ export default function WaiverText() {
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">17. ACKNOWLEDGMENT OF UNDERSTANDING</h4>
+        <h4 className="font-bold text-brand-900">17. NON-REFUNDABLE POLICY</h4>
+        <p>I understand and agree that all bookings are non-refundable. No refunds will be issued for cancellations, no-shows, early returns, weather conditions, or any other reason. By completing this booking, I acknowledge and accept this non-refundable policy.</p>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-brand-900">18. ACKNOWLEDGMENT OF UNDERSTANDING</h4>
         <p>I have carefully read this agreement and fully understand its contents. I understand that I am waiving certain legal rights, including the right to sue. I sign this agreement voluntarily.</p>
       </div>
     </div>
