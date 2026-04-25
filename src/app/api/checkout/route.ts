@@ -133,6 +133,9 @@ export async function POST(request: NextRequest) {
 
   // Create Stripe Checkout Session
   const baseUrl = request.headers.get('origin') || request.headers.get('referer')?.replace(/\/[^/]*$/, '') || 'http://localhost:3000';
+  const depositPerJetSki = 30000; // $300.00 in cents
+  const rentalAmountCents = Math.round(pricePerJetSki * 100) * jetSkiIds.length;
+  const depositAmountCents = depositPerJetSki * jetSkiIds.length;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -149,8 +152,26 @@ export async function POST(request: NextRequest) {
           },
           quantity: jetSkiIds.length,
         },
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: 'Security Deposit (Hold Only)',
+              description: `$300 per jet ski — temporary hold, NOT charged. Released after rental.`,
+            },
+            unit_amount: depositPerJetSki,
+          },
+          quantity: jetSkiIds.length,
+        },
       ],
       mode: 'payment',
+      payment_intent_data: {
+        capture_method: 'manual',
+        metadata: {
+          rental_amount_cents: String(rentalAmountCents),
+          deposit_amount_cents: String(depositAmountCents),
+        },
+      },
       success_url: `${baseUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${primaryBookingId}`,
       cancel_url: `${baseUrl}/booking?cancelled=true`,
       metadata: {
@@ -161,6 +182,8 @@ export async function POST(request: NextRequest) {
         timeSlotId,
         startTime,
         customerName,
+        rentalAmountCents: String(rentalAmountCents),
+        depositAmountCents: String(depositAmountCents),
       },
     });
 

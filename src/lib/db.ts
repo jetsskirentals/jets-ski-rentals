@@ -52,6 +52,9 @@ export interface Booking {
   isManual: boolean;
   stripeSessionId?: string;
   waiver?: WaiverData;
+  depositIntentId?: string;
+  depositAmount?: number;
+  depositStatus?: string;
 }
 
 export interface Review {
@@ -536,5 +539,8 @@ function mapBookingRow(r: Record<string, unknown>): Booking {
     createdAt: r.created_at as string,
     isManual: r.is_manual as boolean,
     stripeSessionId: r.stripe_session_id as string | undefined,
+    depositIntentId: (r.deposit_intent_id as string) || undefined,
+    depositAmount: r.deposit_amount ? Number(r.deposit_amount) : undefined,
+    depositStatus: (r.deposit_status as string) || undefined,
   };
 }

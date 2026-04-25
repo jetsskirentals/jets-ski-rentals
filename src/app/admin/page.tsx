@@ -153,6 +153,7 @@ interface Booking {
   startTime: string; customerName: string; customerEmail: string;
   customerPhone: string; totalPrice: number; status: string;
   createdAt: string; isManual: boolean; waiver?: WaiverData;
+  depositIntentId?: string; depositAmount?: number; depositStatus?: string;
 }
 interface TimeSlot {
   id: string; label: string; durationMinutes: number;
@@ -581,6 +582,9 @@ export default function AdminPage() {
                                 </span>
                               ) : (
                                 !b.isManual && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">NO WAIVER</span>
+                              )}
+                              {b.depositStatus === 'held' && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">${b.depositAmount} HOLD</span>
                               )}
                             </div>
                             <div className="text-sm text-gray-500">

@@ -7,6 +7,7 @@ import { cn, formatTime } from '@/lib/utils';
 import SignaturePad from './SignaturePad';
 import WaiverText from './WaiverText';
 import SafetyBriefingText from './SafetyBriefingText';
+import LiveryWaiverText from './LiveryWaiverText';
 import VideoRecorder from './VideoRecorder';
 
 const LIABILITY_STATEMENT = "My name is _______. Today is _______. I am voluntarily renting and operating this jet ski. I confirm I received the safety briefing, understand the risks of injury or death, and will follow all rules and Florida boating laws. I accept full responsibility for myself and my passengers, assume all risks, and release the rental company and its employees from liability.";
@@ -26,7 +27,7 @@ interface JetSki {
   status: string;
 }
 
-type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'waiver' | 'safety' | 'confirm' | 'success';
+type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'waiver' | 'safety' | 'deposit' | 'confirm' | 'success';
 
 export default function BookingWizard() {
   const [step, setStep] = useState<Step>('date');
@@ -73,6 +74,11 @@ export default function BookingWizard() {
   const [safetyScrolledToBottom, setSafetyScrolledToBottom] = useState(false);
   const [safetySignature, setSafetySignature] = useState('');
   const safetyScrollRef = useRef<HTMLDivElement>(null);
+
+  // Deposit / livery waiver state
+  const [depositScrolledToBottom, setDepositScrolledToBottom] = useState(false);
+  const [depositSignature, setDepositSignature] = useState('');
+  const depositScrollRef = useRef<HTMLDivElement>(null);
 
   // Load inventory data
   useEffect(() => {
@@ -173,6 +179,20 @@ export default function BookingWizard() {
     if (el.scrollHeight - el.scrollTop - el.clientHeight < threshold) {
       setSafetyScrolledToBottom(true);
     }
+  };
+
+  const handleDepositScroll = () => {
+    const el = depositScrollRef.current;
+    if (!el) return;
+    const threshold = 50;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < threshold) {
+      setDepositScrolledToBottom(true);
+    }
+  };
+
+  const getDepositTotal = () => {
+    const count = selectBoth ? jetSkis.length : 1;
+    return 300 * count;
   };
 
   const isWaiverComplete = () => {
@@ -348,6 +368,7 @@ export default function BookingWizard() {
     { key: 'details', label: 'Details' },
     { key: 'waiver', label: 'Waiver' },
     { key: 'safety', label: 'Safety' },
+    { key: 'deposit', label: 'Deposit' },
     { key: 'confirm', label: 'Confirm' },
   ];
 
@@ -931,8 +952,66 @@ export default function BookingWizard() {
           <div className="flex justify-between mt-8">
             <button onClick={() => setStep('waiver')} className="btn-secondary">Back</button>
             <button
-              onClick={() => setStep('confirm')}
+              onClick={() => { setDepositScrolledToBottom(false); setStep('deposit'); }}
               disabled={!safetyScrolledToBottom || !safetySignature}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Deposit / Livery Waiver */}
+      {step === 'deposit' && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <CreditCard className="w-5 h-5 text-amber-600" />
+            <h3 className="text-xl font-bold text-brand-900">Security Deposit &amp; Damage Responsibility</h3>
+          </div>
+          <p className="text-sm text-brand-600/60 mb-2">
+            A temporary hold of <strong className="text-brand-900">${getDepositTotal()}</strong> ($300 per jet ski) will be placed on your card.
+            This is NOT a charge &mdash; it will be released after your rental.
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+            <p className="text-xs text-amber-800">
+              <strong>How it works:</strong> The ${getDepositTotal()} hold reserves funds on your card but does not charge you.
+              If no damage occurs, the hold is automatically released within 5&ndash;7 business days. You will only be charged
+              if damage occurs during your rental.
+            </p>
+          </div>
+          <p className="text-sm text-brand-600/60 mb-4">
+            Please read the damage responsibility agreement below, scroll to the bottom, then sign.
+          </p>
+
+          <div
+            ref={depositScrollRef}
+            onScroll={handleDepositScroll}
+            className="h-64 overflow-y-auto border border-gray-200 rounded-xl p-4 mb-6 bg-gray-50/50"
+          >
+            <LiveryWaiverText />
+          </div>
+
+          {!depositScrolledToBottom && (
+            <p className="text-xs text-amber-600 font-medium mb-4 text-center">
+              Please scroll to the bottom of the agreement to continue
+            </p>
+          )}
+
+          {depositScrolledToBottom && (
+            <div className="space-y-5 max-w-lg mx-auto">
+              <SignaturePad label="Signature — I accept the security deposit and damage responsibility terms *" onSignatureChange={setDepositSignature} />
+              <p className="text-xs text-gray-500 text-center">
+                By signing above, I authorize the ${getDepositTotal()} security deposit hold and accept full damage responsibility as described above.
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-between mt-8">
+            <button onClick={() => setStep('safety')} className="btn-secondary">Back</button>
+            <button
+              onClick={() => setStep('confirm')}
+              disabled={!depositScrolledToBottom || !depositSignature}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Review Booking
@@ -987,9 +1066,29 @@ export default function BookingWizard() {
             </div>
             <div className="border-t-2 border-brand-200 pt-2" />
             <div className="flex justify-between items-center">
-              <span className="font-bold text-brand-900">Total</span>
+              <span className="font-bold text-brand-900">Rental Total</span>
               <span className="text-2xl font-bold text-brand-600">${getPrice()}</span>
             </div>
+            <div className="border-t border-brand-100" />
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-brand-600/60">Security Deposit</span>
+              <span className="font-semibold text-amber-600 flex items-center gap-1">
+                <CreditCard className="w-4 h-4" /> ${getDepositTotal()} hold
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-brand-600/60">Damage Waiver</span>
+              <span className="font-semibold text-green-600 flex items-center gap-1">
+                <CheckCircle className="w-4 h-4" /> Signed
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4">
+            <p className="text-xs text-amber-800 text-center">
+              Your card will be charged <strong>${getPrice()}</strong> for the rental. The <strong>${getDepositTotal()}</strong> security deposit
+              is a temporary hold only and will be released after your rental.
+            </p>
           </div>
 
           {error && (
@@ -1003,7 +1102,7 @@ export default function BookingWizard() {
           </p>
 
           <div className="flex justify-between mt-8">
-            <button onClick={() => setStep('safety')} className="btn-secondary" disabled={submitting}>Back</button>
+            <button onClick={() => setStep('deposit')} className="btn-secondary" disabled={submitting}>Back</button>
             <button
               onClick={handleSubmit}
               disabled={submitting}

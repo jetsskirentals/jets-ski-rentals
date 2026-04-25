@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle, Loader2, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Loader2, ShieldCheck, CreditCard } from 'lucide-react';
 import { formatTime } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 
@@ -13,6 +13,8 @@ interface BookingData {
   totalPrice: number;
   status: string;
   customerEmail: string;
+  depositStatus?: string;
+  depositAmount?: number;
 }
 
 function BookingSuccessContent() {
@@ -84,7 +86,7 @@ function BookingSuccessContent() {
           }
         </p>
 
-        <div className="bg-brand-50/50 rounded-xl p-6 text-left space-y-3 mb-8">
+        <div className="bg-brand-50/50 rounded-xl p-6 text-left space-y-3 mb-4">
           <div className="flex justify-between">
             <span className="text-sm text-brand-600/60">Booking ID</span>
             <span className="font-mono text-sm font-bold text-brand-800">{booking.id}</span>
@@ -98,7 +100,7 @@ function BookingSuccessContent() {
             <span className="font-semibold text-brand-900">{formatTime(booking.startTime)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-sm text-brand-600/60">Total Paid</span>
+            <span className="text-sm text-brand-600/60">Rental Paid</span>
             <span className="font-bold text-brand-600">${booking.totalPrice}</span>
           </div>
           <div className="flex justify-between">
@@ -107,7 +109,24 @@ function BookingSuccessContent() {
               <ShieldCheck className="w-4 h-4" /> Complete
             </span>
           </div>
+          {booking.depositStatus === 'held' && booking.depositAmount && booking.depositAmount > 0 && (
+            <div className="flex justify-between">
+              <span className="text-sm text-brand-600/60">Security Deposit</span>
+              <span className="font-semibold text-amber-600 flex items-center gap-1">
+                <CreditCard className="w-4 h-4" /> ${booking.depositAmount} hold
+              </span>
+            </div>
+          )}
         </div>
+
+        {booking.depositStatus === 'held' && booking.depositAmount && booking.depositAmount > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-8">
+            <p className="text-xs text-amber-800">
+              A <strong>${booking.depositAmount} security deposit hold</strong> has been placed on your card.
+              This is NOT a charge and will be released within 5-7 business days after your rental, provided no damage occurs.
+            </p>
+          </div>
+        )}
 
         <a href="/" className="btn-primary inline-flex">
           Back to Home

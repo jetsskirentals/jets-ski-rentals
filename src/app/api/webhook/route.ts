@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { updateBookingStatus } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   if (!stripe) {
@@ -26,6 +27,36 @@ export async function POST(request: NextRequest) {
       const idsToConfirm = allBookingIds.length > 0 ? allBookingIds : (bookingId ? [bookingId] : []);
       for (const bid of idsToConfirm) {
         await updateBookingStatus(bid, 'confirmed');
+      }
+
+      // Handle partial capture for deposit holds
+      const paymentIntentId = session.payment_intent as string;
+      if (paymentIntentId) {
+        try {
+          const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+          if (paymentIntent.status === 'requires_capture') {
+            const rentalAmountCents = parseInt(paymentIntent.metadata?.rental_amount_cents || session.metadata?.rentalAmountCents || '0');
+            const depositAmountCents = parseInt(paymentIntent.metadata?.deposit_amount_cents || session.metadata?.depositAmountCents || '0');
+
+            if (rentalAmountCents > 0) {
+              await stripe.paymentIntents.capture(paymentIntentId, {
+                amount_to_capture: rentalAmountCents,
+              });
+
+              if (supabase && idsToConfirm.length > 0) {
+                for (const bid of idsToConfirm) {
+                  await supabase.from('bookings').update({
+                    deposit_intent_id: paymentIntentId,
+                    deposit_amount: depositAmountCents / 100,
+                    deposit_status: 'held',
+                  }).eq('id', bid);
+                }
+              }
+            }
+          }
+        } catch (captureErr) {
+          console.error('Deposit capture error (webhook):', captureErr);
+        }
       }
     }
 
