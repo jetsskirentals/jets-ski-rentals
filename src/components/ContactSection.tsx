@@ -20,7 +20,7 @@ export default function ContactSection() {
               </div>
               <div>
                 <h4 className="font-semibold text-brand-900 mb-1">Service Areas</h4>
-                <p className="text-sm text-brand-700/60">Freeport, Destin &amp;<br />the Emerald Coast, FL</p>
+                <p className="text-sm text-brand-700/60">Freeport, Destin,<br />Panama City Beach &amp; the Emerald Coast, FL</p>
               </div>
             </div>
 

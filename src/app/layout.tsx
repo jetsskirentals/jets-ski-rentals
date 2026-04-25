@@ -16,8 +16,8 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Jet's Ski Rentals | Book Your Jet Ski Adventure",
   description:
-    "Reserve your jet ski online in seconds. Choose your date, pick your ride, and hit the waves! Serving Freeport, Destin, and the Emerald Coast with top-quality jet ski rentals.",
-  keywords: "jet ski rental, jet ski booking, water sports, Freeport FL, Destin FL, Emerald Coast, jet ski near me",
+    "Reserve your jet ski online in seconds. Choose your date, pick your ride, and hit the waves! Serving Freeport, Destin, Panama City Beach, and the Emerald Coast with top-quality jet ski rentals.",
+  keywords: "jet ski rental, jet ski booking, water sports, Freeport FL, Destin FL, Panama City Beach FL, Emerald Coast, jet ski near me",
   openGraph: {
     title: "Jet's Ski Rentals | Book Your Jet Ski Adventure",
     description: "Reserve your jet ski online in seconds. Choose your date, pick your ride, and hit the waves!",
