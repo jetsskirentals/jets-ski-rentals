@@ -132,7 +132,12 @@ export default function WaiverText() {
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">9. WEATHER &amp; WATER CONDITIONS</h4>
+        <h4 className="font-bold text-brand-900">9. FUEL POLICY</h4>
+        <p>Jet skis include a full tank of fuel and must be returned full. Any fuel not replenished will be billed to the renter.</p>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-brand-900">10. WEATHER &amp; WATER CONDITIONS</h4>
         <p>I understand that water and weather conditions can change rapidly and may create dangerous situations.</p>
         <p>The rental company reserves the right to:</p>
         <ul className="list-disc pl-5 space-y-0.5">
@@ -144,7 +149,7 @@ export default function WaiverText() {
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">10. PROHIBITED ACTIVITIES</h4>
+        <h4 className="font-bold text-brand-900">11. PROHIBITED ACTIVITIES</h4>
         <p>I agree NOT to:</p>
         <ul className="list-disc pl-5 space-y-0.5">
           <li>Operate under the influence</li>
@@ -160,7 +165,7 @@ export default function WaiverText() {
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">11. MINORS</h4>
+        <h4 className="font-bold text-brand-900">12. MINORS</h4>
         <p>If signing for a minor, I certify that:</p>
         <ul className="list-disc pl-5 space-y-0.5">
           <li>I am the legal parent or guardian.</li>
@@ -170,7 +175,7 @@ export default function WaiverText() {
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">12. MEDICAL FITNESS</h4>
+        <h4 className="font-bold text-brand-900">13. MEDICAL FITNESS</h4>
         <p>I confirm that I am physically capable of participating and do not have any medical condition that would make participation unsafe, including but not limited to:</p>
         <ul className="list-disc pl-5 space-y-0.5">
           <li>Heart conditions</li>
@@ -183,32 +188,32 @@ export default function WaiverText() {
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">13. EMERGENCY MEDICAL AUTHORIZATION</h4>
+        <h4 className="font-bold text-brand-900">14. EMERGENCY MEDICAL AUTHORIZATION</h4>
         <p>In the event of an emergency, I authorize the rental company to obtain medical treatment on my behalf if necessary. I understand that I am responsible for any medical costs incurred.</p>
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">14. PROPERTY LOSS</h4>
+        <h4 className="font-bold text-brand-900">15. PROPERTY LOSS</h4>
         <p>The rental company is not responsible for lost phones, jewelry, wallets, cameras, or personal items. I understand that water activities may result in loss or damage to personal property.</p>
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">15. VIDEO / PHOTO RELEASE</h4>
+        <h4 className="font-bold text-brand-900">16. VIDEO / PHOTO RELEASE</h4>
         <p>I grant permission for the company to use photos or videos taken during the activity for marketing and promotional purposes unless I opt out below.</p>
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">16. COMPLIANCE WITH FLORIDA LAW</h4>
+        <h4 className="font-bold text-brand-900">17. COMPLIANCE WITH FLORIDA LAW</h4>
         <p>This agreement is governed by the laws of the State of Florida. Any disputes shall be resolved in the State of Florida. If any portion of this agreement is deemed invalid, the remaining provisions shall remain in full force and effect.</p>
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">17. NON-REFUNDABLE POLICY</h4>
+        <h4 className="font-bold text-brand-900">18. NON-REFUNDABLE POLICY</h4>
         <p>I understand and agree that all bookings are non-refundable. No refunds will be issued for cancellations, no-shows, early returns, weather conditions, or any other reason. By completing this booking, I acknowledge and accept this non-refundable policy.</p>
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">18. ACKNOWLEDGMENT OF UNDERSTANDING</h4>
+        <h4 className="font-bold text-brand-900">19. ACKNOWLEDGMENT OF UNDERSTANDING</h4>
         <p>I have carefully read this agreement and fully understand its contents. I understand that I am waiving certain legal rights, including the right to sue. I sign this agreement voluntarily.</p>
       </div>
     </div>
