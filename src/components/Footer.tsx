@@ -38,7 +38,7 @@ export default function Footer() {
             <ul className="space-y-3 text-brand-300 text-sm">
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 mt-0.5 text-brand-400 shrink-0" />
-                Grady Brown Park, Freeport, FL 32439
+                Serving Freeport, Destin &amp; the Emerald Coast, FL
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-brand-400 shrink-0" />

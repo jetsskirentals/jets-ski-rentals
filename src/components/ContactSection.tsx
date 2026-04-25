@@ -19,8 +19,8 @@ export default function ContactSection() {
                 <MapPin className="w-6 h-6 text-brand-600" />
               </div>
               <div>
-                <h4 className="font-semibold text-brand-900 mb-1">Location</h4>
-                <p className="text-sm text-brand-700/60">Grady Brown Park<br />Freeport, FL 32439</p>
+                <h4 className="font-semibold text-brand-900 mb-1">Service Areas</h4>
+                <p className="text-sm text-brand-700/60">Freeport, Destin &amp;<br />the Emerald Coast, FL</p>
               </div>
             </div>
 
