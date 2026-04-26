@@ -285,20 +285,25 @@ export default function AdminPage() {
   };
 
   const createManualBooking = async () => {
-    await fetch('/api/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jetSkiId: manualJetSki,
-        date: manualDate,
-        timeSlotId: manualSlot,
-        startTime: manualTime,
-        customerName: manualName,
-        customerEmail: manualEmail || 'walk-in@manual.com',
-        customerPhone: manualPhone,
-        isManual: true,
-      }),
-    });
+    const idsToBook = manualJetSki === 'both'
+      ? jetSkis.filter(js => js.status === 'available').map(js => js.id)
+      : [manualJetSki];
+    for (const jsId of idsToBook) {
+      await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jetSkiId: jsId,
+          date: manualDate,
+          timeSlotId: manualSlot,
+          startTime: manualTime,
+          customerName: manualName,
+          customerEmail: manualEmail || 'walk-in@manual.com',
+          customerPhone: manualPhone,
+          isManual: true,
+        }),
+      });
+    }
     setShowManualForm(false);
     setManualDate(''); setManualJetSki(''); setManualSlot(''); setManualTime('');
     setManualName(''); setManualEmail(''); setManualPhone('');
@@ -518,18 +523,24 @@ export default function AdminPage() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Bookings</h2>
-                <button onClick={() => setShowManualForm(!showManualForm)} className="btn-primary text-sm !py-2 flex items-center gap-1.5">
-                  <Plus className="w-4 h-4" /> Add Manual Booking
-                </button>
+                <div className="flex items-center gap-2">
+                  <a href="/booking" target="_blank" rel="noopener noreferrer" className="btn-primary text-sm !py-2 flex items-center gap-1.5">
+                    <Plus className="w-4 h-4" /> New Booking
+                  </a>
+                  <button onClick={() => setShowManualForm(!showManualForm)} className="btn-secondary text-sm !py-2 flex items-center gap-1.5">
+                    <Plus className="w-4 h-4" /> Quick Walk-in
+                  </button>
+                </div>
               </div>
 
               {showManualForm && (
                 <div className="bg-white rounded-xl p-5 border border-gray-200 mb-6 space-y-3">
-                  <h4 className="font-semibold text-gray-900">Manual Booking (Walk-in)</h4>
+                  <h4 className="font-semibold text-gray-900">Quick Walk-in (no waivers/payment)</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} className="border rounded-lg px-3 py-2 text-sm" />
                     <select value={manualJetSki} onChange={e => setManualJetSki(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
                       <option value="">Select Jet Ski</option>
+                      <option value="both">Both Jet Skis</option>
                       {jetSkis.map(js => <option key={js.id} value={js.id}>{js.name}</option>)}
                     </select>
                     <select value={manualSlot} onChange={e => setManualSlot(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
