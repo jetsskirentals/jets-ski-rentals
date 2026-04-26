@@ -25,40 +25,6 @@ export async function GET(request: NextRequest) {
     try {
       const session = await stripe.checkout.sessions.retrieve(sessionId);
       if (session.payment_status === 'paid' || session.payment_status === 'no_payment_required') {
-        // Get the payment intent
-        const paymentIntentId = session.payment_intent as string;
-        if (paymentIntentId) {
-          const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
-          // If the payment intent is uncaptured (manual capture mode), partially capture only the rental amount
-          if (paymentIntent.status === 'requires_capture') {
-            const rentalAmountCents = parseInt(paymentIntent.metadata?.rental_amount_cents || session.metadata?.rentalAmountCents || '0');
-            const depositAmountCents = parseInt(paymentIntent.metadata?.deposit_amount_cents || session.metadata?.depositAmountCents || '0');
-
-            if (rentalAmountCents > 0) {
-              // Partially capture only the rental amount; the deposit remains as a hold
-              await stripe.paymentIntents.capture(paymentIntentId, {
-                amount_to_capture: rentalAmountCents,
-              });
-
-              depositAmount = depositAmountCents / 100;
-              depositStatus = 'held';
-
-              // Store deposit info on all related bookings
-              if (supabase) {
-                const allBookingIds = session.metadata?.allBookingIds?.split(',') || [bookingId];
-                for (const bid of allBookingIds) {
-                  await supabase.from('bookings').update({
-                    deposit_intent_id: paymentIntentId,
-                    deposit_amount: depositAmount,
-                    deposit_status: 'held',
-                  }).eq('id', bid);
-                }
-              }
-            }
-          }
-        }
-
         if (booking.status !== 'confirmed') {
           await updateBookingStatus(bookingId, 'confirmed');
           booking.status = 'confirmed';
@@ -69,6 +35,58 @@ export async function GET(request: NextRequest) {
         for (const bid of allBookingIds) {
           if (bid !== bookingId) {
             await updateBookingStatus(bid, 'confirmed');
+          }
+        }
+
+        // Place separate deposit hold if no insurance was selected
+        const depositAmountCents = parseInt(session.metadata?.depositAmountCents || '0');
+        if (depositAmountCents > 0) {
+          try {
+            const paymentIntentId = session.payment_intent as string;
+            const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+            const paymentMethodId = paymentIntent.payment_method as string;
+            const customerId = session.customer as string;
+
+            if (paymentMethodId && customerId) {
+              // Check if deposit was already placed (avoid duplicates from page refresh)
+              const idsToCheck = allBookingIds.length > 0 ? allBookingIds : [bookingId];
+              const existingBooking = await getBookingById(idsToCheck[0]);
+              if (!existingBooking?.depositIntentId) {
+                const depositIntent = await stripe.paymentIntents.create({
+                  amount: depositAmountCents,
+                  currency: 'usd',
+                  customer: customerId,
+                  payment_method: paymentMethodId,
+                  capture_method: 'manual',
+                  confirm: true,
+                  off_session: true,
+                  description: `Security deposit hold - Booking ${bookingId}`,
+                  metadata: {
+                    type: 'deposit_hold',
+                    bookingId,
+                    allBookingIds: allBookingIds.join(','),
+                  },
+                });
+
+                depositAmount = depositAmountCents / 100;
+                depositStatus = 'held';
+
+                if (supabase) {
+                  for (const bid of idsToCheck) {
+                    await supabase.from('bookings').update({
+                      deposit_intent_id: depositIntent.id,
+                      deposit_amount: depositAmount,
+                      deposit_status: 'held',
+                    }).eq('id', bid);
+                  }
+                }
+              } else {
+                depositAmount = existingBooking.depositAmount || depositAmountCents / 100;
+                depositStatus = existingBooking.depositStatus || 'held';
+              }
+            }
+          } catch (depositErr) {
+            console.error('Deposit hold error:', depositErr);
           }
         }
       }

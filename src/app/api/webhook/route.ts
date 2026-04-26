@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { updateBookingStatus } from '@/lib/db';
+import { getBookingById, updateBookingStatus } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
@@ -29,24 +29,38 @@ export async function POST(request: NextRequest) {
         await updateBookingStatus(bid, 'confirmed');
       }
 
-      // Handle partial capture for deposit holds
-      const paymentIntentId = session.payment_intent as string;
-      if (paymentIntentId) {
+      // Place separate deposit hold if no insurance was selected
+      const depositAmountCents = parseInt(session.metadata?.depositAmountCents || '0');
+      if (depositAmountCents > 0 && idsToConfirm.length > 0) {
         try {
-          const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-          if (paymentIntent.status === 'requires_capture') {
-            const rentalAmountCents = parseInt(paymentIntent.metadata?.rental_amount_cents || session.metadata?.rentalAmountCents || '0');
-            const depositAmountCents = parseInt(paymentIntent.metadata?.deposit_amount_cents || session.metadata?.depositAmountCents || '0');
+          const existingBooking = await getBookingById(idsToConfirm[0]);
+          if (!existingBooking?.depositIntentId) {
+            const paymentIntentId = session.payment_intent as string;
+            const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+            const paymentMethodId = paymentIntent.payment_method as string;
+            const customerId = session.customer as string;
 
-            if (rentalAmountCents > 0) {
-              await stripe.paymentIntents.capture(paymentIntentId, {
-                amount_to_capture: rentalAmountCents,
+            if (paymentMethodId && customerId) {
+              const depositIntent = await stripe.paymentIntents.create({
+                amount: depositAmountCents,
+                currency: 'usd',
+                customer: customerId,
+                payment_method: paymentMethodId,
+                capture_method: 'manual',
+                confirm: true,
+                off_session: true,
+                description: `Security deposit hold - Booking ${bookingId}`,
+                metadata: {
+                  type: 'deposit_hold',
+                  bookingId: bookingId || '',
+                  allBookingIds: allBookingIds.join(','),
+                },
               });
 
-              if (supabase && idsToConfirm.length > 0) {
+              if (supabase) {
                 for (const bid of idsToConfirm) {
                   await supabase.from('bookings').update({
-                    deposit_intent_id: paymentIntentId,
+                    deposit_intent_id: depositIntent.id,
                     deposit_amount: depositAmountCents / 100,
                     deposit_status: 'held',
                   }).eq('id', bid);
@@ -54,8 +68,8 @@ export async function POST(request: NextRequest) {
               }
             }
           }
-        } catch (captureErr) {
-          console.error('Deposit capture error (webhook):', captureErr);
+        } catch (depositErr) {
+          console.error('Deposit hold error (webhook):', depositErr);
         }
       }
     }

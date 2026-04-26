@@ -170,18 +170,6 @@ export async function POST(request: NextRequest) {
       },
       quantity: jetSkiIds.length,
     });
-  } else {
-    lineItems.push({
-      price_data: {
-        currency: 'usd',
-        product_data: {
-          name: 'Security Deposit (Hold Only)',
-          description: `$300 per jet ski — temporary hold, NOT charged. Released after rental.`,
-        },
-        unit_amount: depositPerJetSki,
-      },
-      quantity: jetSkiIds.length,
-    });
   }
 
   try {
@@ -207,14 +195,11 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Only use manual capture when there's a deposit hold (no insurance)
+    // When no insurance, save payment method so we can place a separate deposit hold after checkout
     if (!hasInsurance) {
+      sessionConfig.customer_creation = 'always';
       sessionConfig.payment_intent_data = {
-        capture_method: 'manual',
-        metadata: {
-          rental_amount_cents: String(rentalAmountCents),
-          deposit_amount_cents: String(depositAmountCents),
-        },
+        setup_future_usage: 'off_session',
       };
     }
 
