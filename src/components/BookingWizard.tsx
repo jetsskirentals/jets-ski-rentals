@@ -799,7 +799,6 @@ export default function BookingWizard() {
                   ref={idInputRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   onChange={handleIdPhotoUpload}
                   className="hidden"
                 />
@@ -840,7 +839,6 @@ export default function BookingWizard() {
                   ref={boaterIdInputRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   onChange={handleBoaterIdUpload}
                   className="hidden"
                 />
