@@ -35,6 +35,8 @@ export interface WaiverData {
   guardianName?: string;
   signedAt: string;
   safetyBriefingSignedAt: string;
+  driverNumber?: number;
+  participantName?: string;
 }
 
 export interface Booking {
@@ -338,6 +340,8 @@ export async function createWaiver(bookingId: string, waiver: WaiverData): Promi
         guardianSignatureDataUrl: waiver.guardianSignaturePath,
         guardianName: waiver.guardianName,
         signedAt: waiver.signedAt,
+        driverNumber: waiver.driverNumber || 0,
+        participantName: waiver.participantName || '',
       };
     }
     return;
@@ -361,6 +365,8 @@ export async function createWaiver(bookingId: string, waiver: WaiverData): Promi
     guardian_name: waiver.guardianName,
     signed_at: waiver.signedAt,
     safety_briefing_signed_at: waiver.safetyBriefingSignedAt,
+    driver_number: waiver.driverNumber || 0,
+    participant_name: waiver.participantName || '',
   });
   if (error) console.error('createWaiver error:', error);
 }
@@ -387,6 +393,8 @@ export async function getWaiver(bookingId: string): Promise<WaiverData | null> {
       guardianName: w.guardianName,
       signedAt: w.signedAt,
       safetyBriefingSignedAt: w.safetyBriefingSignedAt,
+      driverNumber: w.driverNumber || 0,
+      participantName: w.participantName || '',
     };
   }
 
@@ -413,7 +421,63 @@ export async function getWaiver(bookingId: string): Promise<WaiverData | null> {
     guardianName: data.guardian_name,
     signedAt: data.signed_at || '',
     safetyBriefingSignedAt: data.safety_briefing_signed_at || '',
+    driverNumber: data.driver_number || 0,
+    participantName: data.participant_name || '',
   };
+}
+
+export async function getWaiversByBooking(bookingId: string): Promise<WaiverData[]> {
+  if (!hasDB()) {
+    const booking = store.bookings.find(b => b.id === bookingId);
+    if (!booking?.waiver) return [];
+    const w = booking.waiver;
+    return [{
+      participantDOB: w.participantDOB,
+      participantAddress: w.participantAddress,
+      driversLicenseId: w.driversLicenseId,
+      signaturePath: w.signatureDataUrl,
+      idPhotoPath: w.idPhotoDataUrl,
+      boaterIdPhotoPath: w.boaterIdPhotoDataUrl,
+      liabilityVideoPath: w.liabilityVideoDataUrl,
+      safetySignaturePath: w.safetyBriefingSignatureDataUrl,
+      guardianSignaturePath: w.guardianSignatureDataUrl,
+      photoVideoOptOut: w.photoVideoOptOut,
+      isMinor: w.isMinor,
+      minorName: w.minorName,
+      minorAge: w.minorAge,
+      guardianName: w.guardianName,
+      signedAt: w.signedAt,
+      safetyBriefingSignedAt: w.safetyBriefingSignedAt,
+      driverNumber: w.driverNumber || 0,
+      participantName: w.participantName || '',
+    }];
+  }
+
+  const { data, error } = await supabase!.from('waivers')
+    .select('*')
+    .eq('booking_id', bookingId);
+  if (error || !data) return [];
+
+  return data.map(d => ({
+    participantDOB: d.participant_dob || '',
+    participantAddress: d.participant_address || '',
+    driversLicenseId: d.drivers_license_id || '',
+    signaturePath: d.signature_path,
+    idPhotoPath: d.id_photo_path,
+    boaterIdPhotoPath: d.boater_id_photo_path,
+    liabilityVideoPath: d.liability_video_path,
+    safetySignaturePath: d.safety_signature_path,
+    guardianSignaturePath: d.guardian_signature_path,
+    photoVideoOptOut: d.photo_video_opt_out || false,
+    isMinor: d.is_minor || false,
+    minorName: d.minor_name,
+    minorAge: d.minor_age,
+    guardianName: d.guardian_name,
+    signedAt: d.signed_at || '',
+    safetyBriefingSignedAt: d.safety_briefing_signed_at || '',
+    driverNumber: d.driver_number || 0,
+    participantName: d.participant_name || '',
+  }));
 }
 
 // ─── Reviews ───

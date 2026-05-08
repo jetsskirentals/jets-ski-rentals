@@ -35,6 +35,8 @@ export interface WaiverData {
   guardianSignatureDataUrl?: string;
   guardianName?: string;
   signedAt: string;
+  driverNumber?: number;
+  participantName?: string;
 }
 
 export interface Booking {

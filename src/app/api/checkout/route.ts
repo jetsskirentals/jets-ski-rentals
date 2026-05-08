@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const {
     jetSkiId, date, timeSlotId, startTime,
     customerName, customerEmail, customerPhone,
-    waiver, protectionTier,
+    waiver, waivers, protectionTier, isGroupon,
   } = body;
 
   // Validate required fields
@@ -43,6 +43,55 @@ export async function POST(request: NextRequest) {
   const totalPrice = pricePerJetSki * jetSkiIds.length;
   const jetSkiNames = jetSkiIds.map(id => allJetSkis.find(js => js.id === id)?.name || 'Jet Ski').join(' & ');
 
+  // Build waiver list (supports both single `waiver` and `waivers` array for backward compat)
+  const waiverList = waivers || (waiver ? [waiver] : []);
+
+  // Groupon bookings: skip Stripe entirely, set price to 0
+  if (isGroupon) {
+    const bookings = [];
+    for (const jsId of jetSkiIds) {
+      const booking = {
+        id: `bk-${generateId()}`,
+        jetSkiId: jsId,
+        date,
+        timeSlotId,
+        startTime,
+        customerName,
+        customerEmail,
+        customerPhone: customerPhone || '',
+        totalPrice: 0,
+        status: 'confirmed' as const,
+        createdAt: new Date().toISOString(),
+        isManual: false,
+      };
+      await createBooking(booking);
+      for (const w of waiverList) {
+        await createWaiver(booking.id, {
+          participantDOB: w.participantDOB || '',
+          participantAddress: w.participantAddress || '',
+          driversLicenseId: w.driversLicenseId || '',
+          signaturePath: w.signaturePath,
+          idPhotoPath: w.idPhotoPath,
+          boaterIdPhotoPath: w.boaterIdPhotoPath,
+          liabilityVideoPath: w.liabilityVideoPath,
+          safetySignaturePath: w.safetySignaturePath,
+          guardianSignaturePath: w.guardianSignaturePath,
+          photoVideoOptOut: w.photoVideoOptOut || false,
+          isMinor: w.isMinor || false,
+          minorName: w.minorName,
+          minorAge: w.minorAge,
+          guardianName: w.guardianName,
+          signedAt: w.signedAt || new Date().toISOString(),
+          safetyBriefingSignedAt: w.safetyBriefingSignedAt || new Date().toISOString(),
+          driverNumber: w.driverNumber || 0,
+          participantName: w.participantName || '',
+        });
+      }
+      bookings.push(booking);
+    }
+    return NextResponse.json({ booking: { ...bookings[0], totalPrice: 0 }, mode: 'groupon' }, { status: 201 });
+  }
+
   // If Stripe is not configured, fall back to direct booking (no payment)
   if (!stripe) {
     console.warn('Stripe not initialized — falling back to no-payment mode.');
@@ -63,24 +112,26 @@ export async function POST(request: NextRequest) {
         isManual: false,
       };
       await createBooking(booking);
-      if (waiver) {
+      for (const w of waiverList) {
         await createWaiver(booking.id, {
-          participantDOB: waiver.participantDOB || '',
-          participantAddress: waiver.participantAddress || '',
-          driversLicenseId: waiver.driversLicenseId || '',
-          signaturePath: waiver.signaturePath,
-          idPhotoPath: waiver.idPhotoPath,
-          boaterIdPhotoPath: waiver.boaterIdPhotoPath,
-          liabilityVideoPath: waiver.liabilityVideoPath,
-          safetySignaturePath: waiver.safetySignaturePath,
-          guardianSignaturePath: waiver.guardianSignaturePath,
-          photoVideoOptOut: waiver.photoVideoOptOut || false,
-          isMinor: waiver.isMinor || false,
-          minorName: waiver.minorName,
-          minorAge: waiver.minorAge,
-          guardianName: waiver.guardianName,
-          signedAt: waiver.signedAt || new Date().toISOString(),
-          safetyBriefingSignedAt: waiver.safetyBriefingSignedAt || new Date().toISOString(),
+          participantDOB: w.participantDOB || '',
+          participantAddress: w.participantAddress || '',
+          driversLicenseId: w.driversLicenseId || '',
+          signaturePath: w.signaturePath,
+          idPhotoPath: w.idPhotoPath,
+          boaterIdPhotoPath: w.boaterIdPhotoPath,
+          liabilityVideoPath: w.liabilityVideoPath,
+          safetySignaturePath: w.safetySignaturePath,
+          guardianSignaturePath: w.guardianSignaturePath,
+          photoVideoOptOut: w.photoVideoOptOut || false,
+          isMinor: w.isMinor || false,
+          minorName: w.minorName,
+          minorAge: w.minorAge,
+          guardianName: w.guardianName,
+          signedAt: w.signedAt || new Date().toISOString(),
+          safetyBriefingSignedAt: w.safetyBriefingSignedAt || new Date().toISOString(),
+          driverNumber: w.driverNumber || 0,
+          participantName: w.participantName || '',
         });
       }
       bookings.push(booking);
@@ -108,25 +159,27 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
       isManual: false,
     });
-    // Save waiver for each booking
-    if (waiver) {
+    // Save waivers for each booking
+    for (const w of waiverList) {
       await createWaiver(bookingId, {
-        participantDOB: waiver.participantDOB || '',
-        participantAddress: waiver.participantAddress || '',
-        driversLicenseId: waiver.driversLicenseId || '',
-        signaturePath: waiver.signaturePath,
-        idPhotoPath: waiver.idPhotoPath,
-        boaterIdPhotoPath: waiver.boaterIdPhotoPath,
-        liabilityVideoPath: waiver.liabilityVideoPath,
-        safetySignaturePath: waiver.safetySignaturePath,
-        guardianSignaturePath: waiver.guardianSignaturePath,
-        photoVideoOptOut: waiver.photoVideoOptOut || false,
-        isMinor: waiver.isMinor || false,
-        minorName: waiver.minorName,
-        minorAge: waiver.minorAge,
-        guardianName: waiver.guardianName,
-        signedAt: waiver.signedAt || new Date().toISOString(),
-        safetyBriefingSignedAt: waiver.safetyBriefingSignedAt || new Date().toISOString(),
+        participantDOB: w.participantDOB || '',
+        participantAddress: w.participantAddress || '',
+        driversLicenseId: w.driversLicenseId || '',
+        signaturePath: w.signaturePath,
+        idPhotoPath: w.idPhotoPath,
+        boaterIdPhotoPath: w.boaterIdPhotoPath,
+        liabilityVideoPath: w.liabilityVideoPath,
+        safetySignaturePath: w.safetySignaturePath,
+        guardianSignaturePath: w.guardianSignaturePath,
+        photoVideoOptOut: w.photoVideoOptOut || false,
+        isMinor: w.isMinor || false,
+        minorName: w.minorName,
+        minorAge: w.minorAge,
+        guardianName: w.guardianName,
+        signedAt: w.signedAt || new Date().toISOString(),
+        safetyBriefingSignedAt: w.safetyBriefingSignedAt || new Date().toISOString(),
+        driverNumber: w.driverNumber || 0,
+        participantName: w.participantName || '',
       });
     }
   }

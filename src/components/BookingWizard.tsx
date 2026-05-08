@@ -44,9 +44,34 @@ interface JetSki {
   status: string;
 }
 
-type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'waiver' | 'safety' | 'fwc' | 'protection' | 'deposit' | 'confirm' | 'success';
+type Step = 'date' | 'duration' | 'jetski' | 'time' | 'details' | 'waiver' | 'safety' | 'fwc' | 'adddriver' | 'protection' | 'deposit' | 'confirm' | 'success';
 
-export default function BookingWizard() {
+interface DriverWaiver {
+  driverName: string;
+  dob: string;
+  address: string;
+  licenseId: string;
+  signature: string;
+  idPhoto: string;
+  idPhotoFile: File | null;
+  boaterIdPhoto: string;
+  boaterIdPhotoFile: File | null;
+  liabilityVideo: string;
+  videoBlob: Blob | null;
+  photoOptOut: boolean;
+  isMinor: boolean;
+  minorName: string;
+  minorAge: string;
+  guardianSignature: string;
+  guardianName: string;
+  safetySignature: string;
+  safetyScrolled: boolean;
+  fwcComplete: boolean;
+  fwcSignature: string;
+  waiverScrolled: boolean;
+}
+
+export default function BookingWizard({ isGroupon = false }: { isGroupon?: boolean }) {
   const [step, setStep] = useState<Step>('date');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
@@ -98,6 +123,11 @@ export default function BookingWizard() {
 
   // Protection tier state
   const [selectedProtection, setSelectedProtection] = useState<string>('');
+
+  // Additional driver state
+  const [additionalDrivers, setAdditionalDrivers] = useState<DriverWaiver[]>([]);
+  const [isDriverWaiverMode, setIsDriverWaiverMode] = useState(false);
+  const [driverName, setDriverName] = useState('');
 
   // Deposit / livery waiver state (only shown if no insurance selected)
   const [depositScrolledToBottom, setDepositScrolledToBottom] = useState(false);
@@ -234,6 +264,103 @@ export default function BookingWizard() {
     return base;
   };
 
+  const resetWaiverFields = () => {
+    setWaiverDOB('');
+    setWaiverAddress('');
+    setWaiverLicenseId('');
+    setWaiverSignature('');
+    setWaiverIdPhoto('');
+    setWaiverIdPhotoFile(null);
+    setWaiverBoaterIdPhoto('');
+    setWaiverBoaterIdPhotoFile(null);
+    setWaiverLiabilityVideo('');
+    setVideoBlob(null);
+    setWaiverPhotoOptOut(false);
+    setWaiverIsMinor(false);
+    setWaiverMinorName('');
+    setWaiverMinorAge('');
+    setWaiverGuardianSignature('');
+    setWaiverGuardianName('');
+    setWaiverScrolledToBottom(false);
+    setSafetyScrolledToBottom(false);
+    setSafetySignature('');
+    setFwcComplete(false);
+    setFwcSignature('');
+    setDriverName('');
+  };
+
+  const saveCurrentDriverWaiver = () => {
+    const driver: DriverWaiver = {
+      driverName,
+      dob: waiverDOB,
+      address: waiverAddress,
+      licenseId: waiverLicenseId,
+      signature: waiverSignature,
+      idPhoto: waiverIdPhoto,
+      idPhotoFile: waiverIdPhotoFile,
+      boaterIdPhoto: waiverBoaterIdPhoto,
+      boaterIdPhotoFile: waiverBoaterIdPhotoFile,
+      liabilityVideo: waiverLiabilityVideo,
+      videoBlob,
+      photoOptOut: waiverPhotoOptOut,
+      isMinor: waiverIsMinor,
+      minorName: waiverMinorName,
+      minorAge: waiverMinorAge,
+      guardianSignature: waiverGuardianSignature,
+      guardianName: waiverGuardianName,
+      safetySignature,
+      safetyScrolled: safetyScrolledToBottom,
+      fwcComplete,
+      fwcSignature,
+      waiverScrolled: waiverScrolledToBottom,
+    };
+    setAdditionalDrivers(prev => [...prev, driver]);
+    resetWaiverFields();
+  };
+
+  const startAddDriver = () => {
+    resetWaiverFields();
+    setIsDriverWaiverMode(true);
+    setWaiverScrolledToBottom(false);
+    setStep('waiver');
+  };
+
+  const uploadDriverFiles = async (driver: DriverWaiver, bookingId: string, driverNum: number) => {
+    const prefix = `driver-${driverNum}`;
+    const idPath = driver.idPhotoFile ? await uploadFileToStorage(driver.idPhotoFile, `${prefix}/id-photo`, bookingId) : null;
+    const boaterPath = driver.boaterIdPhotoFile ? await uploadFileToStorage(driver.boaterIdPhotoFile, `${prefix}/boater-id`, bookingId) : null;
+    const sigPath = driver.signature ? await uploadDataUrlToStorage(driver.signature, `${prefix}/signature`, bookingId) : null;
+    const safetySigPath = driver.safetySignature ? await uploadDataUrlToStorage(driver.safetySignature, `${prefix}/safety-signature`, bookingId) : null;
+    let guardianSigPath: string | null = null;
+    if (driver.isMinor && driver.guardianSignature) {
+      guardianSigPath = await uploadDataUrlToStorage(driver.guardianSignature, `${prefix}/guardian-signature`, bookingId);
+    }
+    let vidPath: string | null = null;
+    if (driver.videoBlob) {
+      vidPath = await uploadVideoToStorage(driver.videoBlob, bookingId);
+    }
+    return {
+      participantName: driver.driverName,
+      driverNumber: driverNum,
+      participantDOB: driver.dob,
+      participantAddress: driver.address,
+      driversLicenseId: driver.licenseId,
+      signaturePath: sigPath,
+      idPhotoPath: idPath,
+      boaterIdPhotoPath: boaterPath,
+      liabilityVideoPath: vidPath,
+      safetySignaturePath: safetySigPath,
+      guardianSignaturePath: guardianSigPath,
+      photoVideoOptOut: driver.photoOptOut,
+      isMinor: driver.isMinor,
+      minorName: driver.isMinor ? driver.minorName : undefined,
+      minorAge: driver.isMinor ? driver.minorAge : undefined,
+      guardianName: driver.isMinor ? driver.guardianName : undefined,
+      signedAt: new Date().toISOString(),
+      safetyBriefingSignedAt: new Date().toISOString(),
+    };
+  };
+
   // Helper: upload a file via FormData to our upload API
   const uploadFileToStorage = async (file: File | Blob, type: string, bookingId: string): Promise<string | null> => {
     const formData = new FormData();
@@ -323,7 +450,36 @@ export default function BookingWizard() {
         videoPath = await uploadVideoToStorage(videoBlob, tempBookingId);
       }
 
-      setUploadProgress('Processing payment...');
+      // Upload additional driver files
+      const driverWaivers = [];
+      for (let i = 0; i < additionalDrivers.length; i++) {
+        setUploadProgress(`Uploading Driver ${i + 2} files...`);
+        const driverWaiver = await uploadDriverFiles(additionalDrivers[i], tempBookingId, i + 1);
+        driverWaivers.push(driverWaiver);
+      }
+
+      setUploadProgress(isGroupon ? 'Confirming booking...' : 'Processing payment...');
+
+      const primaryWaiver = {
+        participantName: customerName,
+        driverNumber: 0,
+        participantDOB: waiverDOB,
+        participantAddress: waiverAddress,
+        driversLicenseId: waiverLicenseId,
+        signaturePath: signaturePath,
+        idPhotoPath: idPhotoPath,
+        boaterIdPhotoPath: boaterIdPath,
+        liabilityVideoPath: videoPath,
+        safetySignaturePath: safetySignaturePath,
+        guardianSignaturePath: guardianSignaturePath,
+        safetyBriefingSignedAt: new Date().toISOString(),
+        photoVideoOptOut: waiverPhotoOptOut,
+        isMinor: waiverIsMinor,
+        minorName: waiverIsMinor ? waiverMinorName : undefined,
+        minorAge: waiverIsMinor ? waiverMinorAge : undefined,
+        guardianName: waiverIsMinor ? waiverGuardianName : undefined,
+        signedAt: new Date().toISOString(),
+      };
 
       const bookingPayload = {
         jetSkiId: selectBoth ? 'both' : selectedJetSki!.id,
@@ -333,25 +489,9 @@ export default function BookingWizard() {
         customerName,
         customerEmail,
         customerPhone,
-        protectionTier: selectedProtection || 'none',
-        waiver: {
-          participantDOB: waiverDOB,
-          participantAddress: waiverAddress,
-          driversLicenseId: waiverLicenseId,
-          signaturePath: signaturePath,
-          idPhotoPath: idPhotoPath,
-          boaterIdPhotoPath: boaterIdPath,
-          liabilityVideoPath: videoPath,
-          safetySignaturePath: safetySignaturePath,
-          guardianSignaturePath: guardianSignaturePath,
-          safetyBriefingSignedAt: new Date().toISOString(),
-          photoVideoOptOut: waiverPhotoOptOut,
-          isMinor: waiverIsMinor,
-          minorName: waiverIsMinor ? waiverMinorName : undefined,
-          minorAge: waiverIsMinor ? waiverMinorAge : undefined,
-          guardianName: waiverIsMinor ? waiverGuardianName : undefined,
-          signedAt: new Date().toISOString(),
-        },
+        protectionTier: isGroupon ? 'none' : (selectedProtection || 'none'),
+        isGroupon,
+        waivers: [primaryWaiver, ...driverWaivers],
       };
 
       const res = await fetch('/api/checkout', {
@@ -401,8 +541,11 @@ export default function BookingWizard() {
     { key: 'waiver', label: 'Waiver' },
     { key: 'safety', label: 'Safety' },
     { key: 'fwc', label: 'FWC' },
-    { key: 'protection', label: 'Protection' },
-    ...(selectedProtection === 'none' ? [{ key: 'deposit' as Step, label: 'Deposit' }] : []),
+    { key: 'adddriver', label: 'Drivers' },
+    ...(isGroupon ? [] : [
+      { key: 'protection' as Step, label: 'Protection' },
+      ...(selectedProtection === 'none' ? [{ key: 'deposit' as Step, label: 'Deposit' }] : []),
+    ]),
     { key: 'confirm', label: 'Confirm' },
   ];
 
@@ -753,8 +896,16 @@ export default function BookingWizard() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <FileText className="w-5 h-5 text-red-500" />
-            <h3 className="text-xl font-bold text-brand-900">Liability Waiver</h3>
+            <h3 className="text-xl font-bold text-brand-900">
+              {isDriverWaiverMode ? `Additional Driver Waiver` : 'Liability Waiver'}
+            </h3>
           </div>
+          {isDriverWaiverMode && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4">
+              <label className="block text-sm font-medium text-blue-800 mb-1.5">Driver&apos;s Full Name *</label>
+              <input type="text" value={driverName} onChange={e => setDriverName(e.target.value)} placeholder="Enter driver's full name" className={inputClass} />
+            </div>
+          )}
           <p className="text-sm text-brand-600/60 mb-4">
             Please read the waiver carefully, scroll to the bottom, then fill in your details and sign.
           </p>
@@ -942,10 +1093,18 @@ export default function BookingWizard() {
           )}
 
           <div className="flex justify-between mt-8">
-            <button onClick={() => setStep('details')} className="btn-secondary">Back</button>
+            <button onClick={() => {
+              if (isDriverWaiverMode) {
+                resetWaiverFields();
+                setIsDriverWaiverMode(false);
+                setStep('adddriver');
+              } else {
+                setStep('details');
+              }
+            }} className="btn-secondary">Back</button>
             <button
               onClick={() => { setSafetyScrolledToBottom(false); setStep('safety'); }}
-              disabled={!waiverScrolledToBottom || !isWaiverComplete()}
+              disabled={!waiverScrolledToBottom || !isWaiverComplete() || (isDriverWaiverMode && !driverName)}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continue to Safety Briefing
@@ -1026,11 +1185,71 @@ export default function BookingWizard() {
           <div className="flex justify-between mt-8">
             <button onClick={() => setStep('safety')} className="btn-secondary">Back</button>
             <button
-              onClick={() => setStep('protection')}
+              onClick={() => {
+                if (isDriverWaiverMode) {
+                  saveCurrentDriverWaiver();
+                  setIsDriverWaiverMode(false);
+                  setStep('adddriver');
+                } else {
+                  setStep('adddriver');
+                }
+              }}
               disabled={!fwcComplete || !fwcSignature}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Add Driver */}
+      {step === 'adddriver' && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Waves className="w-5 h-5 text-brand-600" />
+            <h3 className="text-xl font-bold text-brand-900">Additional Drivers</h3>
+          </div>
+          <p className="text-sm text-brand-600/60 mb-6">
+            Will anyone else be driving the jet ski? Each additional driver must complete the waiver, safety briefing, and FWC checklist.
+          </p>
+
+          {additionalDrivers.length > 0 && (
+            <div className="space-y-3 mb-6">
+              {additionalDrivers.map((d, i) => (
+                <div key={i} className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-4">
+                  <div>
+                    <span className="font-semibold text-brand-900">{d.driverName}</span>
+                    <span className="text-sm text-green-600 ml-2">Driver {i + 2}</span>
+                  </div>
+                  <span className="flex items-center gap-1 text-sm text-green-600 font-medium">
+                    <CheckCircle className="w-4 h-4" /> Waiver Complete
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={startAddDriver}
+            className="w-full py-4 border-2 border-dashed border-brand-300 rounded-xl text-brand-600 font-semibold hover:border-brand-500 hover:bg-brand-50/50 transition-colors mb-4"
+          >
+            + Add a Driver
+          </button>
+
+          <div className="flex justify-between mt-8">
+            <button onClick={() => setStep('fwc')} className="btn-secondary">Back</button>
+            <button
+              onClick={() => {
+                if (isGroupon) {
+                  setStep('confirm');
+                } else {
+                  setStep('protection');
+                }
+              }}
+              className="btn-primary"
+            >
+              {additionalDrivers.length > 0 ? 'Continue' : 'No Additional Drivers — Continue'}
             </button>
           </div>
         </div>
@@ -1116,7 +1335,7 @@ export default function BookingWizard() {
           )}
 
           <div className="flex justify-between mt-8">
-            <button onClick={() => setStep('fwc')} className="btn-secondary">Back</button>
+            <button onClick={() => setStep('adddriver')} className="btn-secondary">Back</button>
             <button
               onClick={() => {
                 if (selectedProtection === 'none') {
@@ -1196,7 +1415,9 @@ export default function BookingWizard() {
       {/* Step: Confirm */}
       {step === 'confirm' && (
         <div>
-          <h3 className="text-xl font-bold text-brand-900 mb-6">Review Your Booking</h3>
+          <h3 className="text-xl font-bold text-brand-900 mb-6">
+            {isGroupon ? 'Review Your Groupon Booking' : 'Review Your Booking'}
+          </h3>
 
           <div className="bg-brand-50/50 rounded-xl p-6 space-y-4 max-w-md mx-auto">
             <div className="flex justify-between items-center">
@@ -1244,6 +1465,25 @@ export default function BookingWizard() {
                 <CheckCircle className="w-4 h-4" /> Complete
               </span>
             </div>
+            {additionalDrivers.length > 0 && (
+              <>
+                <div className="border-t border-brand-100" />
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-brand-600/60">Additional Drivers</span>
+                  <span className="font-semibold text-green-600 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" /> {additionalDrivers.length} driver{additionalDrivers.length > 1 ? 's' : ''} signed
+                  </span>
+                </div>
+                {additionalDrivers.map((d, i) => (
+                  <div key={i} className="flex justify-between items-center pl-4">
+                    <span className="text-xs text-brand-600/40">Driver {i + 2}</span>
+                    <span className="text-xs font-medium text-brand-700">{d.driverName}</span>
+                  </div>
+                ))}
+              </>
+            )}
+            {!isGroupon && (
+            <>
             <div className="border-t border-brand-100" />
             <div className="flex justify-between items-center">
               <span className="text-sm text-brand-600/60">Protection</span>
@@ -1276,20 +1516,45 @@ export default function BookingWizard() {
               <span className="font-bold text-brand-900">Total</span>
               <span className="text-2xl font-bold text-brand-600">${getTotalWithProtection()}</span>
             </div>
+            </>
+            )}
+            {isGroupon && (
+              <div className="border-t-2 border-brand-200 pt-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-brand-900">Payment</span>
+                  <span className="text-lg font-bold text-green-600">Paid via Groupon</span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {selectedProtection === 'none' ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4">
-              <p className="text-xs text-amber-800 text-center">
-                Your card will be charged <strong>${getPrice()}</strong> for the rental. A <strong>${getDepositTotal()}</strong> security deposit
-                hold will also be placed (not charged, released after rental).
+          {!isGroupon && (
+            <>
+              {selectedProtection === 'none' ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4">
+                  <p className="text-xs text-amber-800 text-center">
+                    Your card will be charged <strong>${getPrice()}</strong> for the rental. A <strong>${getDepositTotal()}</strong> security deposit
+                    hold will also be placed (not charged, released after rental).
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3 mt-4">
+                  <p className="text-xs text-green-800 text-center">
+                    Your card will be charged <strong>${getTotalWithProtection()}</strong> (rental + {PROTECTION_TIERS.find(t => t.id === selectedProtection)?.name} protection).
+                    No security deposit hold needed.
+                  </p>
+                </div>
+              )}
+              <p className="text-xs text-brand-600/40 text-center mt-4">
+                You&apos;ll be redirected to our secure payment page to complete your booking.
               </p>
-            </div>
-          ) : (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-3 mt-4">
-              <p className="text-xs text-green-800 text-center">
-                Your card will be charged <strong>${getTotalWithProtection()}</strong> (rental + {PROTECTION_TIERS.find(t => t.id === selectedProtection)?.name} protection).
-                No security deposit hold needed.
+            </>
+          )}
+
+          {isGroupon && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mt-4">
+              <p className="text-xs text-blue-800 text-center">
+                No payment required — your Groupon purchase covers this rental. Click below to confirm your booking.
               </p>
             </div>
           )}
@@ -1300,12 +1565,14 @@ export default function BookingWizard() {
             </div>
           )}
 
-          <p className="text-xs text-brand-600/40 text-center mt-4">
-            You&apos;ll be redirected to our secure payment page to complete your booking.
-          </p>
-
           <div className="flex justify-between mt-8">
-            <button onClick={() => setStep(selectedProtection === 'none' ? 'deposit' : 'protection')} className="btn-secondary" disabled={submitting}>Back</button>
+            <button onClick={() => {
+              if (isGroupon) {
+                setStep('adddriver');
+              } else {
+                setStep(selectedProtection === 'none' ? 'deposit' : 'protection');
+              }
+            }} className="btn-secondary" disabled={submitting}>Back</button>
             <button
               onClick={handleSubmit}
               disabled={submitting}
@@ -1315,6 +1582,11 @@ export default function BookingWizard() {
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   {uploadProgress || 'Booking...'}
+                </>
+              ) : isGroupon ? (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Confirm Groupon Booking
                 </>
               ) : (
                 <>

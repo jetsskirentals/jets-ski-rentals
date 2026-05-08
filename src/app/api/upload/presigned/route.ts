@@ -3,7 +3,7 @@ import { createUploadSignedUrl } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
-    const { bookingId, type, ext } = await request.json();
+    const { bookingId, type, ext, driverNumber } = await request.json();
 
     if (!bookingId || !type) {
       return NextResponse.json({ error: 'Missing bookingId or type' }, { status: 400 });
@@ -15,7 +15,9 @@ export async function POST(request: NextRequest) {
     }
 
     const extension = ext || (type === 'video' ? 'webm' : 'png');
-    const storagePath = `${bookingId}/${type}_${Date.now()}.${extension}`;
+    const dn = parseInt(driverNumber || '0', 10) || 0;
+    const driverPrefix = dn > 0 ? `driver-${dn}/` : '';
+    const storagePath = `${bookingId}/${driverPrefix}${type}_${Date.now()}.${extension}`;
 
     const result = await createUploadSignedUrl(storagePath);
     if (!result) {

@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const type = formData.get('type') as string;
     const bookingId = formData.get('bookingId') as string;
+    const driverNumber = parseInt(formData.get('driverNumber') as string || '0', 10) || 0;
 
     if (!file || !type || !bookingId) {
       return NextResponse.json({ error: 'Missing file, type, or bookingId' }, { status: 400 });
@@ -36,7 +37,8 @@ export async function POST(request: NextRequest) {
     }
 
     const ext = file.name.split('.').pop() || 'jpg';
-    const storagePath = `${bookingId}/${type}_${Date.now()}.${ext}`;
+    const driverPrefix = driverNumber > 0 ? `driver-${driverNumber}/` : '';
+    const storagePath = `${bookingId}/${driverPrefix}${type}_${Date.now()}.${ext}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const result = await uploadFile(storagePath, buffer, file.type);
