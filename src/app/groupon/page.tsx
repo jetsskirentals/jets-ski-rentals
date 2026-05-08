@@ -4,7 +4,7 @@ import BookingWizard from '@/components/BookingWizard';
 
 export const metadata = {
   title: "Groupon Booking | Jet's Ski Rentals",
-  description: "Complete your Groupon jet ski rental booking. Select your date, time, and complete the required waivers.",
+  description: "Complete your Groupon jet ski rental booking. Select your date and time, and complete the required waivers.",
 };
 
 export default function GrouponPage() {
