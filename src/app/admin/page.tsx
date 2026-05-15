@@ -221,6 +221,43 @@ export default function AdminPage() {
   const [editSettings, setEditSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState<SettingsData | null>(null);
 
+  // Deposit hold form
+  const [showDepositForm, setShowDepositForm] = useState(false);
+  const [depositEmail, setDepositEmail] = useState('');
+  const [depositName, setDepositName] = useState('');
+  const [depositAmount, setDepositAmount] = useState('300');
+  const [depositBookingId, setDepositBookingId] = useState('');
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [depositLink, setDepositLink] = useState('');
+  const [depositError, setDepositError] = useState('');
+
+  const sendDepositHold = async () => {
+    setDepositLoading(true);
+    setDepositError('');
+    setDepositLink('');
+    try {
+      const res = await fetch('/api/admin/deposit-hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerEmail: depositEmail,
+          customerName: depositName,
+          amount: parseFloat(depositAmount),
+          bookingId: depositBookingId || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setDepositLink(data.url);
+      } else {
+        setDepositError(data.error || 'Failed to create deposit hold');
+      }
+    } catch {
+      setDepositError('Something went wrong');
+    }
+    setDepositLoading(false);
+  };
+
   // Waiver viewer
   const [expandedWaivers, setExpandedWaivers] = useState<Set<string>>(new Set());
   const [loadedWaivers, setLoadedWaivers] = useState<Record<string, WaiverData>>({});
@@ -523,12 +560,15 @@ export default function AdminPage() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Bookings</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <a href="/booking" target="_blank" rel="noopener noreferrer" className="btn-primary text-sm !py-2 flex items-center gap-1.5">
                     <Plus className="w-4 h-4" /> New Booking
                   </a>
                   <button onClick={() => setShowManualForm(!showManualForm)} className="btn-secondary text-sm !py-2 flex items-center gap-1.5">
                     <Plus className="w-4 h-4" /> Quick Walk-in
+                  </button>
+                  <button onClick={() => { setShowDepositForm(!showDepositForm); setDepositLink(''); setDepositError(''); }} className="text-sm !py-2 flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">
+                    <DollarSign className="w-4 h-4" /> Deposit Hold
                   </button>
                 </div>
               </div>
@@ -556,6 +596,59 @@ export default function AdminPage() {
                       Create Booking
                     </button>
                     <button onClick={() => setShowManualForm(false)} className="btn-secondary text-sm !py-2">Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {showDepositForm && (
+                <div className="bg-white rounded-xl p-5 border border-amber-200 mb-6 space-y-3">
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-amber-600" />
+                    Send Deposit Hold Link
+                  </h4>
+                  <p className="text-sm text-gray-500">Generate a payment link that places a hold on the customer&apos;s card (not a charge). The hold can be released later.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input type="text" placeholder="Customer Name" value={depositName} onChange={e => setDepositName(e.target.value)} className="border rounded-lg px-3 py-2 text-sm" />
+                    <input type="email" placeholder="Customer Email" value={depositEmail} onChange={e => setDepositEmail(e.target.value)} className="border rounded-lg px-3 py-2 text-sm" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input type="number" placeholder="Amount" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} className="border rounded-lg px-3 py-2 text-sm flex-1" min="1" step="0.01" />
+                    </div>
+                    <select value={depositBookingId} onChange={e => setDepositBookingId(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
+                      <option value="">Link to booking (optional)</option>
+                      {allBookings.filter(b => b.status === 'confirmed').map(b => (
+                        <option key={b.id} value={b.id}>{b.customerName} — {format(parseISO(b.date), 'MMM d')} at {formatTime(b.startTime)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {depositError && <p className="text-red-600 text-sm">{depositError}</p>}
+                  {depositLink && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
+                      <p className="text-sm text-green-800 font-medium flex items-center gap-1.5">
+                        <CheckCircle className="w-4 h-4" /> Deposit hold link created!
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input type="text" readOnly value={depositLink} className="border rounded-lg px-3 py-2 text-xs flex-1 bg-white text-gray-700" onClick={e => (e.target as HTMLInputElement).select()} />
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(depositLink); }}
+                          className="text-sm px-3 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 transition-colors whitespace-nowrap"
+                        >
+                          Copy Link
+                        </button>
+                      </div>
+                      <p className="text-xs text-green-700">Send this link to the customer. When they complete it, a hold will be placed on their card.</p>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    {!depositLink && (
+                      <button onClick={sendDepositHold} disabled={depositLoading || !depositEmail || !depositAmount} className="btn-primary text-sm !py-2 disabled:opacity-50 flex items-center gap-1.5">
+                        {depositLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        {depositLoading ? 'Creating...' : 'Generate Link'}
+                      </button>
+                    )}
+                    <button onClick={() => { setShowDepositForm(false); setDepositLink(''); setDepositError(''); setDepositEmail(''); setDepositName(''); setDepositAmount('300'); setDepositBookingId(''); }} className="btn-secondary text-sm !py-2">
+                      {depositLink ? 'Done' : 'Cancel'}
+                    </button>
                   </div>
                 </div>
               )}

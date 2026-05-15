@@ -24,6 +24,22 @@ export async function POST(request: NextRequest) {
       const allBookingIds = session.metadata?.allBookingIds?.split(',') || [];
       const bookingId = session.metadata?.bookingId;
 
+      // Handle manual deposit hold from admin
+      if (session.metadata?.type === 'manual_deposit_hold') {
+        const depositBookingId = session.metadata.bookingId;
+        const paymentIntentId = session.payment_intent as string;
+        const amountCents = session.amount_total || 0;
+
+        if (depositBookingId && supabase) {
+          await supabase.from('bookings').update({
+            deposit_intent_id: paymentIntentId,
+            deposit_amount: amountCents / 100,
+            deposit_status: 'held',
+          }).eq('id', depositBookingId);
+        }
+        return NextResponse.json({ received: true });
+      }
+
       const idsToConfirm = allBookingIds.length > 0 ? allBookingIds : (bookingId ? [bookingId] : []);
       for (const bid of idsToConfirm) {
         await updateBookingStatus(bid, 'confirmed');
