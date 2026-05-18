@@ -180,10 +180,10 @@ export default function WaiverText() {
         <ul className="list-disc pl-5 space-y-0.5">
           <li>Heart conditions</li>
           <li>Seizures</li>
-          <li>Pregnancy</li>
           <li>Severe back or neck injuries</li>
           <li>Conditions affecting balance</li>
         </ul>
+        <p className="font-semibold">Pregnant individuals are strictly prohibited from operating or riding on the jet ski. By signing this waiver, I confirm that I am not pregnant.</p>
         <p>I accept full responsibility for my health.</p>
       </div>
 
@@ -208,12 +208,37 @@ export default function WaiverText() {
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">18. NON-REFUNDABLE POLICY</h4>
+        <h4 className="font-bold text-brand-900">18. LATE RETURN POLICY</h4>
+        <p>The jet ski must be returned on time at the end of the scheduled rental period. Late returns will incur the following fees:</p>
+        <ul className="list-disc pl-5 space-y-0.5">
+          <li><strong>Up to 30 minutes late:</strong> $75.00 late return fee</li>
+          <li><strong>More than 30 minutes late:</strong> $125.00 late return fee</li>
+        </ul>
+        <p>These fees will be charged to the credit card on file. Returning the jet ski on time is the renter&apos;s responsibility.</p>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-brand-900">19. CAPSIZING &amp; EQUIPMENT DAMAGE FEE</h4>
+        <p>If the jet ski is capsized (flipped over) during the rental period, the renter will be charged a <strong>$1,500.00 equipment damage and recovery fee</strong>. This fee covers inspection, potential mechanical damage, water intrusion repair, and any required downtime. This fee will be charged to the credit card on file.</p>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-brand-900">20. LAW ENFORCEMENT &amp; NEGLIGENCE PENALTIES</h4>
+        <p>The renter agrees to comply with all applicable federal, state, and local boating laws at all times. The following penalties apply:</p>
+        <ul className="list-disc pl-5 space-y-0.5">
+          <li><strong>Operating under the influence (BUI):</strong> If the renter is stopped, cited, or arrested for operating the jet ski under the influence of alcohol or drugs, the renter will be charged a <strong>$5,000.00 penalty fee</strong> in addition to any fines imposed by law enforcement.</li>
+          <li><strong>Law enforcement stop for negligence:</strong> If the renter is stopped or cited by law enforcement for reckless operation, speeding, operating in restricted areas, or any other violation, a <strong>$175.00 negligence fee</strong> will be assessed.</li>
+        </ul>
+        <p>All penalty fees will be charged to the credit card on file and are non-negotiable.</p>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-brand-900">21. NON-REFUNDABLE POLICY</h4>
         <p>I understand and agree that all bookings are non-refundable. No refunds will be issued for cancellations, no-shows, early returns, weather conditions, or any other reason. By completing this booking, I acknowledge and accept this non-refundable policy.</p>
       </div>
 
       <div>
-        <h4 className="font-bold text-brand-900">19. ACKNOWLEDGMENT OF UNDERSTANDING</h4>
+        <h4 className="font-bold text-brand-900">22. ACKNOWLEDGMENT OF UNDERSTANDING</h4>
         <p>I have carefully read this agreement and fully understand its contents. I understand that I am waiving certain legal rights, including the right to sue. I sign this agreement voluntarily.</p>
       </div>
     </div>
