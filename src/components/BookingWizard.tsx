@@ -71,8 +71,8 @@ interface DriverWaiver {
   waiverScrolled: boolean;
 }
 
-export default function BookingWizard({ isGroupon = false }: { isGroupon?: boolean }) {
-  const [step, setStep] = useState<Step>('date');
+export default function BookingWizard({ isGroupon = false, waiverOnly = false }: { isGroupon?: boolean; waiverOnly?: boolean }) {
+  const [step, setStep] = useState<Step>(waiverOnly ? 'details' : 'date');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [selectedJetSki, setSelectedJetSki] = useState<JetSki | null>(null);
@@ -412,6 +412,98 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
     }
   };
 
+  const handleWaiverOnlySubmit = async () => {
+    setSubmitting(true);
+    setError('');
+    try {
+      const tempId = `wv-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`;
+
+      setUploadProgress('Uploading ID photo...');
+      const idPhotoPath = waiverIdPhotoFile
+        ? await uploadFileToStorage(waiverIdPhotoFile, 'id-photo', tempId)
+        : null;
+
+      setUploadProgress('Uploading boater ID...');
+      const boaterIdPath = waiverBoaterIdPhotoFile
+        ? await uploadFileToStorage(waiverBoaterIdPhotoFile, 'boater-id', tempId)
+        : null;
+
+      setUploadProgress('Uploading signature...');
+      const signaturePath = waiverSignature
+        ? await uploadDataUrlToStorage(waiverSignature, 'signature', tempId)
+        : null;
+
+      const safetySignaturePath = safetySignature
+        ? await uploadDataUrlToStorage(safetySignature, 'safety-signature', tempId)
+        : null;
+
+      let guardianSignaturePath: string | null = null;
+      if (waiverIsMinor && waiverGuardianSignature) {
+        guardianSignaturePath = await uploadDataUrlToStorage(waiverGuardianSignature, 'guardian-signature', tempId);
+      }
+
+      let videoPath: string | null = null;
+      if (videoBlob) {
+        setUploadProgress('Uploading liability video...');
+        videoPath = await uploadVideoToStorage(videoBlob, tempId);
+      }
+
+      const driverWaivers = [];
+      for (let i = 0; i < additionalDrivers.length; i++) {
+        setUploadProgress(`Uploading Driver ${i + 2} files...`);
+        const dw = await uploadDriverFiles(additionalDrivers[i], tempId, i + 1);
+        driverWaivers.push(dw);
+      }
+
+      setUploadProgress('Saving waiver...');
+
+      const primaryWaiver = {
+        participantName: customerName,
+        driverNumber: 0,
+        participantDOB: waiverDOB,
+        participantAddress: waiverAddress,
+        driversLicenseId: waiverLicenseId,
+        signaturePath,
+        idPhotoPath,
+        boaterIdPhotoPath: boaterIdPath,
+        liabilityVideoPath: videoPath,
+        safetySignaturePath,
+        guardianSignaturePath,
+        safetyBriefingSignedAt: new Date().toISOString(),
+        photoVideoOptOut: waiverPhotoOptOut,
+        isMinor: waiverIsMinor,
+        minorName: waiverIsMinor ? waiverMinorName : undefined,
+        minorAge: waiverIsMinor ? waiverMinorAge : undefined,
+        guardianName: waiverIsMinor ? waiverGuardianName : undefined,
+        signedAt: new Date().toISOString(),
+      };
+
+      const res = await fetch('/api/waiver-only', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: tempId,
+          customerName,
+          customerEmail,
+          customerPhone,
+          waivers: [primaryWaiver, ...driverWaivers],
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: 'Server error' }));
+        throw new Error(data.error || 'Failed to save waiver');
+      }
+
+      setStep('success');
+      setBookingResult({ id: tempId, date: '', startTime: '', totalPrice: 0 });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+    }
+    setSubmitting(false);
+    setUploadProgress('');
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setError('');
@@ -534,7 +626,13 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
   const startPadding = getDay(monthStart);
   const today = startOfToday();
 
-  const steps: { key: Step; label: string }[] = [
+  const steps: { key: Step; label: string }[] = waiverOnly ? [
+    { key: 'details', label: 'Details' },
+    { key: 'waiver', label: 'Waiver' },
+    { key: 'safety', label: 'Safety' },
+    { key: 'fwc', label: 'FWC' },
+    { key: 'adddriver', label: 'Drivers' },
+  ] : [
     { key: 'date', label: 'Date' },
     { key: 'duration', label: 'Duration' },
     { key: 'jetski', label: 'Jet Ski' },
@@ -881,7 +979,8 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
           </div>
 
           <div className="flex justify-between mt-8">
-            <button onClick={() => setStep('time')} className="btn-secondary">Back</button>
+            {!waiverOnly && <button onClick={() => setStep('time')} className="btn-secondary">Back</button>}
+            {waiverOnly && <div />}
             <button
               onClick={() => { setWaiverScrolledToBottom(false); setStep('waiver'); }}
               disabled={!customerName || !customerEmail || !customerPhone}
@@ -1243,15 +1342,30 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
             <button onClick={() => setStep('fwc')} className="btn-secondary">Back</button>
             <button
               onClick={() => {
-                if (isGroupon) {
+                if (waiverOnly) {
+                  handleWaiverOnlySubmit();
+                } else if (isGroupon) {
                   setStep('confirm');
                 } else {
                   setStep('protection');
                 }
               }}
-              className="btn-primary"
+              disabled={submitting}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50"
             >
-              {additionalDrivers.length > 0 ? 'Continue' : 'No Additional Drivers — Continue'}
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {uploadProgress || 'Submitting...'}
+                </>
+              ) : waiverOnly ? (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  {additionalDrivers.length > 0 ? 'Submit All Waivers' : 'Submit Waiver'}
+                </>
+              ) : (
+                additionalDrivers.length > 0 ? 'Continue' : 'No Additional Drivers — Continue'
+              )}
             </button>
           </div>
         </div>
@@ -1608,37 +1722,81 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
             <CheckCircle className="w-10 h-10 text-green-500" />
           </div>
 
-          <h3 className="text-2xl font-bold text-brand-900 mb-2">Booking Confirmed!</h3>
-          <p className="text-brand-600/60 mb-8 max-w-md mx-auto">
-            Your jet ski reservation is locked in. A confirmation email will be sent to {customerEmail}.
-          </p>
+          {waiverOnly ? (
+            <>
+              <h3 className="text-2xl font-bold text-brand-900 mb-2">Waiver Complete!</h3>
+              <p className="text-brand-600/60 mb-8 max-w-md mx-auto">
+                Your waiver has been signed and submitted successfully. You&apos;re all set for your ride!
+              </p>
 
-          <div className="bg-brand-50/50 rounded-xl p-6 max-w-sm mx-auto mb-8 text-left space-y-3">
-            <div className="flex justify-between">
-              <span className="text-sm text-brand-600/60">Booking ID</span>
-              <span className="font-mono text-sm font-bold text-brand-800">{bookingResult.id}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-brand-600/60">Date</span>
-              <span className="font-semibold text-brand-900">{format(parseISO(bookingResult.date), 'MMM d, yyyy')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-brand-600/60">Time</span>
-              <span className="font-semibold text-brand-900">{formatTime(bookingResult.startTime)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-brand-600/60">Total</span>
-              <span className="font-bold text-brand-600">${bookingResult.totalPrice}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-brand-600/60">Waiver</span>
-              <span className="font-semibold text-green-600">Signed</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-brand-600/60">Safety Briefing</span>
-              <span className="font-semibold text-green-600">Acknowledged</span>
-            </div>
-          </div>
+              <div className="bg-brand-50/50 rounded-xl p-6 max-w-sm mx-auto mb-8 text-left space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">Name</span>
+                  <span className="font-semibold text-brand-900">{customerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">Waiver</span>
+                  <span className="font-semibold text-green-600 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" /> Signed
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">Safety Briefing</span>
+                  <span className="font-semibold text-green-600 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" /> Acknowledged
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">FWC Checklist</span>
+                  <span className="font-semibold text-green-600 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" /> Complete
+                  </span>
+                </div>
+                {additionalDrivers.length > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-brand-600/60">Additional Drivers</span>
+                    <span className="font-semibold text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-4 h-4" /> {additionalDrivers.length} driver{additionalDrivers.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="text-2xl font-bold text-brand-900 mb-2">Booking Confirmed!</h3>
+              <p className="text-brand-600/60 mb-8 max-w-md mx-auto">
+                Your jet ski reservation is locked in. A confirmation email will be sent to {customerEmail}.
+              </p>
+
+              <div className="bg-brand-50/50 rounded-xl p-6 max-w-sm mx-auto mb-8 text-left space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">Booking ID</span>
+                  <span className="font-mono text-sm font-bold text-brand-800">{bookingResult.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">Date</span>
+                  <span className="font-semibold text-brand-900">{format(parseISO(bookingResult.date), 'MMM d, yyyy')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">Time</span>
+                  <span className="font-semibold text-brand-900">{formatTime(bookingResult.startTime)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">Total</span>
+                  <span className="font-bold text-brand-600">${bookingResult.totalPrice}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">Waiver</span>
+                  <span className="font-semibold text-green-600">Signed</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-brand-600/60">Safety Briefing</span>
+                  <span className="font-semibold text-green-600">Acknowledged</span>
+                </div>
+              </div>
+            </>
+          )}
 
           <a href="/" className="btn-primary inline-flex">
             Back to Home

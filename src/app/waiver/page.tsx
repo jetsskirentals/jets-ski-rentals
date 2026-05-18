@@ -4,7 +4,7 @@ import BookingWizard from '@/components/BookingWizard';
 
 export const metadata = {
   title: "Complete Your Waiver | Jet's Ski Rentals",
-  description: "Complete your jet ski rental waiver. Select your date, time, and complete the required safety waivers.",
+  description: "Complete your jet ski rental waiver and required safety briefings.",
 };
 
 export default function WaiverPage() {
@@ -15,16 +15,16 @@ export default function WaiverPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="text-center mb-10">
             <div className="inline-block bg-brand-100 text-brand-800 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-              Waiver & Check-in
+              Waiver &amp; Check-in
             </div>
             <h1 className="text-3xl md:text-4xl font-bold text-brand-900 mb-3">
               Complete Your Waiver
             </h1>
             <p className="text-brand-700/60 max-w-lg mx-auto">
-              Select your date and time, then complete the required safety waivers to finalize your reservation.
+              Enter your details and complete the required safety waivers.
             </p>
           </div>
-          <BookingWizard isGroupon />
+          <BookingWizard waiverOnly />
         </div>
       </main>
       <Footer />
