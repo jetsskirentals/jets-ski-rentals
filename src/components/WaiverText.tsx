@@ -153,7 +153,7 @@ export default function WaiverText() {
         <p>I agree NOT to:</p>
         <ul className="list-disc pl-5 space-y-0.5">
           <li>Operate under the influence</li>
-          <li>Allow unauthorized drivers</li>
+          <li>Allow unauthorized drivers (any individual who has not completed the required waiver and safety briefing)</li>
           <li>Operate outside designated areas</li>
           <li>Tow objects or people</li>
           <li>Engage in reckless or high-risk behavior</li>
@@ -162,6 +162,7 @@ export default function WaiverText() {
           <li>Operate near swimmers or wildlife</li>
         </ul>
         <p>Violation may result in immediate termination with no refund.</p>
+        <p className="font-semibold">Unauthorized Driver Fee: If any individual who has not completed the required waiver and safety briefing is found operating the jet ski, a <strong>$1,000.00 unauthorized driver fee</strong> will be charged to the credit card on file. All operators must be registered and have a signed waiver on record prior to operating the watercraft.</p>
       </div>
 
       <div>
