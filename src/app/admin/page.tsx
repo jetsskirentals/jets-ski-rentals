@@ -114,6 +114,11 @@ interface StripeBooking {
   totalPrice: number;
   status: string;
   createdAt: string;
+  protectionTier?: string;
+  rentalAmountCents?: number;
+  depositAmountCents?: number;
+  protectionAmountCents?: number;
+  paymentIntentId?: string;
 }
 interface StripeStats {
   totalBookings: number;
@@ -154,6 +159,9 @@ interface Booking {
   customerPhone: string; totalPrice: number; status: string;
   createdAt: string; isManual: boolean; waiver?: WaiverData;
   depositIntentId?: string; depositAmount?: number; depositStatus?: string;
+  protectionTier?: string; rentalAmountCents?: number;
+  depositAmountCents?: number; protectionAmountCents?: number;
+  paymentIntentId?: string;
 }
 interface TimeSlot {
   id: string; label: string; durationMinutes: number;
@@ -429,13 +437,21 @@ export default function AdminPage() {
   // Merge Stripe bookings with in-memory bookings (Stripe bookings are authoritative)
   const allBookings: Booking[] = (() => {
     const memoryIds = new Set(bookings.map(b => b.id));
+    const stripeById = new Map(stripeBookings.map(sb => [sb.id, sb]));
     const stripeOnly: Booking[] = stripeBookings.filter(sb => !memoryIds.has(sb.id)).map(sb => ({
       ...sb,
       customerPhone: '',
       timeSlotId: sb.jetSkiId || '',
       isManual: false,
     }));
-    return [...bookings, ...stripeOnly];
+    const merged = bookings.map(b => {
+      const sb = stripeById.get(b.id);
+      if (sb) {
+        return { ...b, protectionTier: sb.protectionTier, rentalAmountCents: sb.rentalAmountCents, depositAmountCents: sb.depositAmountCents, protectionAmountCents: sb.protectionAmountCents, paymentIntentId: sb.paymentIntentId };
+      }
+      return b;
+    });
+    return [...merged, ...stripeOnly];
   })();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -690,11 +706,28 @@ export default function AdminPage() {
                               {b.depositStatus === 'held' && (
                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">${b.depositAmount} HOLD</span>
                               )}
+                              {b.protectionTier && b.protectionTier !== 'none' && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                  {b.protectionTier.toUpperCase()} PROTECTION
+                                </span>
+                              )}
+                              {b.protectionTier === 'none' && b.depositAmountCents && b.depositAmountCents > 0 && !b.depositStatus && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
+                                  ${b.depositAmountCents / 100} DEPOSIT
+                                </span>
+                              )}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {format(parseISO(b.date), 'MMM d, yyyy')} at {formatTime(b.startTime)} &middot; {slot?.label} &middot; {jetSki?.name}
+                              {b.date ? `${format(parseISO(b.date), 'MMM d, yyyy')} at ${formatTime(b.startTime)}` : 'No date'} {slot ? `· ${slot.label}` : ''} {jetSki ? `· ${jetSki.name}` : ''}
                             </div>
                             <div className="text-xs text-gray-400">{b.customerEmail} {b.customerPhone && `| ${b.customerPhone}`}</div>
+                            {(b.rentalAmountCents || b.protectionAmountCents || b.depositAmountCents) ? (
+                              <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-2">
+                                {b.rentalAmountCents ? <span>Rental: ${b.rentalAmountCents / 100}</span> : null}
+                                {b.protectionAmountCents ? <span>&middot; Insurance: ${b.protectionAmountCents / 100} ({b.protectionTier})</span> : null}
+                                {b.depositAmountCents ? <span>&middot; Deposit: ${b.depositAmountCents / 100} {b.depositStatus === 'held' ? '(held)' : b.protectionTier !== 'none' ? '(waived)' : '(pending)'}</span> : null}
+                              </div>
+                            ) : null}
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="font-bold text-brand-600">${b.totalPrice}</span>

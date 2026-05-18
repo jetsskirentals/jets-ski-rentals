@@ -22,7 +22,7 @@ export async function GET() {
     });
 
     const bookings = sessions.data
-      .filter(s => s.payment_status === 'paid')
+      .filter(s => s.payment_status === 'paid' && s.metadata?.type !== 'manual_deposit_hold')
       .map(s => ({
         id: s.metadata?.bookingId || s.id,
         date: s.metadata?.date || '',
@@ -36,6 +36,11 @@ export async function GET() {
         createdAt: new Date(s.created * 1000).toISOString(),
         stripeSessionId: s.id,
         isManual: false,
+        protectionTier: s.metadata?.protectionTier || 'none',
+        rentalAmountCents: parseInt(s.metadata?.rentalAmountCents || '0'),
+        depositAmountCents: parseInt(s.metadata?.depositAmountCents || '0'),
+        protectionAmountCents: parseInt(s.metadata?.protectionAmountCents || '0'),
+        paymentIntentId: (s.payment_intent as string) || '',
       }));
 
     const totalRevenue = bookings.reduce((sum, b) => sum + b.totalPrice, 0);

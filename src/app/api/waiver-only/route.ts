@@ -14,6 +14,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
+  const primary = waivers[0];
+  if (!primary.signaturePath) {
+    return NextResponse.json({ error: 'Waiver signature is required' }, { status: 400 });
+  }
+  if (!primary.idPhotoPath) {
+    return NextResponse.json({ error: 'Photo ID is required' }, { status: 400 });
+  }
+  if (!primary.participantDOB) {
+    return NextResponse.json({ error: 'Date of birth is required' }, { status: 400 });
+  }
+  if (!primary.participantAddress) {
+    return NextResponse.json({ error: 'Address is required' }, { status: 400 });
+  }
+  if (!primary.driversLicenseId) {
+    return NextResponse.json({ error: 'Driver\'s license ID is required' }, { status: 400 });
+  }
+
   try {
     for (const w of waivers) {
       await createWaiver(id, {

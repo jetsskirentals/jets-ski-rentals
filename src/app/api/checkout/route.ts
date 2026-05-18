@@ -46,6 +46,26 @@ export async function POST(request: NextRequest) {
   // Build waiver list (supports both single `waiver` and `waivers` array for backward compat)
   const waiverList = waivers || (waiver ? [waiver] : []);
 
+  // Server-side waiver validation
+  if (waiverList.length > 0) {
+    const primary = waiverList[0];
+    if (!primary.signaturePath && !primary.signatureDataUrl) {
+      return NextResponse.json({ error: 'Waiver signature is required' }, { status: 400 });
+    }
+    if (!primary.idPhotoPath && !primary.idPhotoDataUrl) {
+      return NextResponse.json({ error: 'Photo ID is required' }, { status: 400 });
+    }
+    if (!primary.participantDOB) {
+      return NextResponse.json({ error: 'Date of birth is required' }, { status: 400 });
+    }
+    if (!primary.participantAddress) {
+      return NextResponse.json({ error: 'Address is required' }, { status: 400 });
+    }
+    if (!primary.driversLicenseId) {
+      return NextResponse.json({ error: 'Driver\'s license ID is required' }, { status: 400 });
+    }
+  }
+
   // Waiver-only bookings (no payment): skip Stripe entirely, set price to 0
   if (isGroupon) {
     const bookings = [];
