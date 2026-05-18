@@ -287,6 +287,8 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
     setFwcComplete(false);
     setFwcSignature('');
     setDriverName('');
+    if (idInputRef.current) idInputRef.current.value = '';
+    if (boaterIdInputRef.current) boaterIdInputRef.current.value = '';
   };
 
   const saveCurrentDriverWaiver = () => {
@@ -458,7 +460,7 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
         driverWaivers.push(driverWaiver);
       }
 
-      setUploadProgress(isGroupon ? 'Confirming booking...' : 'Processing payment...');
+      setUploadProgress(isGroupon ? 'Confirming your booking...' : 'Processing payment...');
 
       const primaryWaiver = {
         participantName: customerName,
@@ -1416,7 +1418,7 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
       {step === 'confirm' && (
         <div>
           <h3 className="text-xl font-bold text-brand-900 mb-6">
-            {isGroupon ? 'Review Your Groupon Booking' : 'Review Your Booking'}
+            Review Your Booking
           </h3>
 
           <div className="bg-brand-50/50 rounded-xl p-6 space-y-4 max-w-md mx-auto">
@@ -1522,7 +1524,7 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
               <div className="border-t-2 border-brand-200 pt-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-brand-900">Payment</span>
-                  <span className="text-lg font-bold text-green-600">Paid via Groupon</span>
+                  <span className="text-lg font-bold text-green-600">No Payment Required</span>
                 </div>
               </div>
             )}
@@ -1554,7 +1556,7 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
           {isGroupon && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mt-4">
               <p className="text-xs text-blue-800 text-center">
-                No payment required — your Groupon purchase covers this rental. Click below to confirm your booking.
+                No payment required. Click below to confirm your booking.
               </p>
             </div>
           )}
@@ -1586,7 +1588,7 @@ export default function BookingWizard({ isGroupon = false }: { isGroupon?: boole
               ) : isGroupon ? (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  Confirm Groupon Booking
+                  Confirm Booking
                 </>
               ) : (
                 <>

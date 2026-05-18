@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   // Build waiver list (supports both single `waiver` and `waivers` array for backward compat)
   const waiverList = waivers || (waiver ? [waiver] : []);
 
-  // Groupon bookings: skip Stripe entirely, set price to 0
+  // Waiver-only bookings (no payment): skip Stripe entirely, set price to 0
   if (isGroupon) {
     const bookings = [];
     for (const jsId of jetSkiIds) {
