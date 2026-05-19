@@ -368,7 +368,10 @@ export async function createWaiver(bookingId: string, waiver: WaiverData): Promi
     driver_number: waiver.driverNumber || 0,
     participant_name: waiver.participantName || '',
   });
-  if (error) console.error('createWaiver error:', error);
+  if (error) {
+    console.error('createWaiver error:', error);
+    throw new Error(`Failed to save waiver: ${error.message}`);
+  }
 }
 
 export async function getWaiver(bookingId: string): Promise<WaiverData | null> {
@@ -489,12 +492,32 @@ export async function getWaiverOnlySubmissions(): Promise<Array<{
   driverCount: number;
 }>> {
   if (!hasDB()) return [];
+
+  // Use filter() with 'like' operator for broader compatibility
   const { data, error } = await supabase!.from('waivers')
     .select('booking_id, participant_name, signed_at, driver_number')
-    .like('booking_id', 'wv-%')
+    .filter('booking_id', 'like', 'wv-%')
     .order('signed_at', { ascending: false });
-  if (error || !data) return [];
 
+  if (error) {
+    console.error('getWaiverOnlySubmissions error:', error);
+    // Fallback: fetch all waivers and filter client-side
+    const { data: allData, error: allError } = await supabase!.from('waivers')
+      .select('booking_id, participant_name, signed_at, driver_number')
+      .order('signed_at', { ascending: false });
+    if (allError || !allData) {
+      console.error('getWaiverOnlySubmissions fallback error:', allError);
+      return [];
+    }
+    const filtered = allData.filter(r => r.booking_id?.startsWith('wv-'));
+    return groupWaiverSubmissions(filtered);
+  }
+
+  if (!data) return [];
+  return groupWaiverSubmissions(data);
+}
+
+function groupWaiverSubmissions(data: Array<{ booking_id: string; participant_name: string; signed_at: string; driver_number: number }>) {
   const grouped = new Map<string, { name: string; signedAt: string; drivers: number }>();
   for (const row of data) {
     const existing = grouped.get(row.booking_id);
