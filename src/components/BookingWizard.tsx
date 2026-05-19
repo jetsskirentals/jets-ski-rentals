@@ -517,14 +517,7 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
         videoPath = await uploadVideoToStorage(videoBlob, tempId);
       }
 
-      const driverWaivers = [];
-      for (let i = 0; i < additionalDrivers.length; i++) {
-        setUploadProgress(`Uploading Driver ${i + 2} files...`);
-        const dw = await uploadDriverFiles(additionalDrivers[i], tempId, i + 1);
-        driverWaivers.push(dw);
-      }
-
-      // Verify uploads succeeded before submitting
+      // Verify primary uploads succeeded before uploading driver files
       if (!signaturePath) {
         throw new Error('Signature upload failed. Please clear and re-sign your signature, then try again.');
       }
@@ -533,6 +526,13 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
       }
       if (!boaterIdPath) {
         throw new Error('Boater ID upload failed. Please re-upload your boater ID and try again.');
+      }
+
+      const driverWaivers = [];
+      for (let i = 0; i < additionalDrivers.length; i++) {
+        setUploadProgress(`Uploading Driver ${i + 2} files...`);
+        const dw = await uploadDriverFiles(additionalDrivers[i], tempId, i + 1);
+        driverWaivers.push(dw);
       }
 
       setUploadProgress('Saving waiver...');
@@ -624,15 +624,7 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
         videoPath = await uploadVideoToStorage(videoBlob, tempBookingId);
       }
 
-      // Upload additional driver files
-      const driverWaivers = [];
-      for (let i = 0; i < additionalDrivers.length; i++) {
-        setUploadProgress(`Uploading Driver ${i + 2} files...`);
-        const driverWaiver = await uploadDriverFiles(additionalDrivers[i], tempBookingId, i + 1);
-        driverWaivers.push(driverWaiver);
-      }
-
-      // Verify uploads succeeded before submitting
+      // Verify primary uploads succeeded before uploading driver files
       if (!signaturePath) {
         throw new Error('Signature upload failed. Please clear and re-sign your signature, then try again.');
       }
@@ -641,6 +633,14 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
       }
       if (!boaterIdPath) {
         throw new Error('Boater ID upload failed. Please re-upload your boater ID and try again.');
+      }
+
+      // Upload additional driver files
+      const driverWaivers = [];
+      for (let i = 0; i < additionalDrivers.length; i++) {
+        setUploadProgress(`Uploading Driver ${i + 2} files...`);
+        const driverWaiver = await uploadDriverFiles(additionalDrivers[i], tempBookingId, i + 1);
+        driverWaivers.push(driverWaiver);
       }
 
       setUploadProgress(isGroupon ? 'Confirming your booking...' : 'Processing payment...');
