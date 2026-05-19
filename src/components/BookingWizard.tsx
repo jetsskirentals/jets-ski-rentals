@@ -411,13 +411,47 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
     return null;
   };
 
-  // Helper: upload a data URL (signature) as a file
+  // Helper: upload a data URL (signature) via presigned URL (direct to Supabase, bypasses Vercel)
   const uploadDataUrlToStorage = async (dataUrl: string, type: string, bookingId: string): Promise<string | null> => {
     try {
       const blob = dataUrlToBlob(dataUrl);
+      const baseType = type.includes('/') ? type.split('/').pop()! : type;
+      const driverMatch = type.match(/^driver-(\d+)\//);
+      const driverNumber = driverMatch ? driverMatch[1] : '0';
+
+      // Try presigned URL first (direct browser → Supabase, most reliable on mobile)
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const presignRes = await fetch('/api/upload/presigned', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingId, type: baseType, ext: 'png', driverNumber }),
+          });
+          if (!presignRes.ok) {
+            console.error(`Presign failed (${type}, attempt ${attempt + 1}):`, await presignRes.text());
+            if (attempt === 0) continue;
+            break;
+          }
+          const { uploadUrl, storagePath } = await presignRes.json();
+          const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'image/png', 'x-upsert': 'true' },
+            body: blob,
+          });
+          if (uploadRes.ok) return storagePath;
+          console.error(`Direct upload failed (${type}, attempt ${attempt + 1}):`, uploadRes.status);
+          if (attempt === 0) continue;
+        } catch (e) {
+          console.error(`Presigned upload error (${type}, attempt ${attempt + 1}):`, e);
+          if (attempt === 0) continue;
+        }
+      }
+
+      // Fallback: upload via API route
+      console.log(`Falling back to API upload for ${type}`);
       return uploadFileToStorage(blob, type, bookingId);
     } catch (e) {
-      console.error('Data URL conversion failed:', e);
+      console.error('Data URL upload failed:', e);
       return null;
     }
   };
