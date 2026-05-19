@@ -463,7 +463,7 @@ export default function AdminPage() {
       }
       return b;
     });
-    return [...merged, ...stripeOnly];
+    return [...merged, ...stripeOnly].filter(b => b.status !== 'waiver-only');
   })();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -549,7 +549,7 @@ export default function AdminPage() {
                   { label: 'Today\'s Bookings', value: stripeStats?.todayBookings ?? todayBookings.length, icon: CalendarDays, color: 'text-brand-600 bg-brand-50' },
                   { label: 'Total Bookings', value: stripeStats?.totalBookings ?? activeBookings.length, icon: Users, color: 'text-ocean-600 bg-ocean-50' },
                   { label: 'Total Revenue', value: `$${revenue}`, icon: DollarSign, color: 'text-green-600 bg-green-50' },
-                  { label: 'Signed Waivers', value: bookings.filter(b => b.waiver).length, icon: FileCheck, color: 'text-purple-600 bg-purple-50' },
+                  { label: 'Signed Waivers', value: bookings.filter(b => b.waiver && b.status !== 'waiver-only').length, icon: FileCheck, color: 'text-purple-600 bg-purple-50' },
                 ].map(stat => (
                   <div key={stat.label} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
                     <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center mb-3', stat.color)}>

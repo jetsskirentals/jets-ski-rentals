@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createWaiver } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   let body;
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 
-  const { id, customerName, customerEmail, waivers } = body;
+  const { id, customerName, customerEmail, customerPhone, waivers } = body;
   if (!id || !customerName || !customerEmail || !waivers?.length) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
@@ -32,6 +33,27 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Create a placeholder booking record so the FK constraint on waivers is satisfied
+    if (supabase) {
+      const { error: bookingError } = await supabase.from('bookings').insert({
+        id,
+        jet_ski_id: 'waiver-only',
+        date: new Date().toISOString().split('T')[0],
+        time_slot_id: 'waiver-only',
+        start_time: '00:00',
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone || '',
+        total_price: 0,
+        status: 'waiver-only',
+        is_manual: false,
+      });
+      if (bookingError) {
+        console.error('waiver-only booking insert error:', bookingError);
+        throw new Error(`Failed to create waiver record: ${bookingError.message}`);
+      }
+    }
+
     for (const w of waivers) {
       await createWaiver(id, {
         participantDOB: w.participantDOB || '',
