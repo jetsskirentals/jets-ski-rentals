@@ -266,6 +266,9 @@ export default function AdminPage() {
     setDepositLoading(false);
   };
 
+  // Waiver-only submissions
+  const [waiverSubmissions, setWaiverSubmissions] = useState<Array<{ id: string; participantName: string; signedAt: string; driverCount: number }>>([]);
+
   // Waiver viewer
   const [expandedWaivers, setExpandedWaivers] = useState<Set<string>>(new Set());
   const [loadedWaivers, setLoadedWaivers] = useState<Record<string, WaiverData>>({});
@@ -313,6 +316,15 @@ export default function AdminPage() {
         setStripeStats(stripeData.stats || null);
       }
     } catch { /* Stripe data is optional */ }
+
+    // Fetch waiver-only submissions
+    try {
+      const waiverRes = await fetch('/api/admin/waiver-submissions');
+      if (waiverRes.ok) {
+        const waiverData = await waiverRes.json();
+        setWaiverSubmissions(waiverData.submissions || []);
+      }
+    } catch { /* Optional */ }
 
     setLoading(false);
   };
@@ -900,6 +912,50 @@ export default function AdminPage() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Waiver-Only Submissions */}
+              {waiverSubmissions.length > 0 && (
+                <div className="mt-10">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <FileCheck className="w-5 h-5 text-green-600" />
+                    Waiver-Only Check-ins ({waiverSubmissions.length})
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">Customers who completed waivers via /waiver (no online payment)</p>
+                  <div className="space-y-2">
+                    {waiverSubmissions.map(ws => (
+                      <div key={ws.id} className="bg-white rounded-xl border border-green-200 p-4 flex items-center justify-between">
+                        <div>
+                          <span className="font-semibold text-gray-900">{ws.participantName}</span>
+                          {ws.driverCount > 0 && (
+                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                              +{ws.driverCount} driver{ws.driverCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {ws.signedAt ? format(parseISO(ws.signedAt), 'MMM d, yyyy h:mm a') : 'Unknown date'}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" /> Waiver Signed
+                          </span>
+                          <button
+                            onClick={() => {
+                              const newSet = new Set(expandedWaivers);
+                              if (newSet.has(ws.id)) { newSet.delete(ws.id); } else { newSet.add(ws.id); loadWaiver(ws.id); }
+                              setExpandedWaivers(newSet);
+                            }}
+                            className="text-xs text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View
+                            {expandedWaivers.has(ws.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

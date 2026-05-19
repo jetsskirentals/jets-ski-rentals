@@ -480,6 +480,45 @@ export async function getWaiversByBooking(bookingId: string): Promise<WaiverData
   }));
 }
 
+// ─── Waiver-Only Submissions ───
+
+export async function getWaiverOnlySubmissions(): Promise<Array<{
+  id: string;
+  participantName: string;
+  signedAt: string;
+  driverCount: number;
+}>> {
+  if (!hasDB()) return [];
+  const { data, error } = await supabase!.from('waivers')
+    .select('booking_id, participant_name, signed_at, driver_number')
+    .like('booking_id', 'wv-%')
+    .order('signed_at', { ascending: false });
+  if (error || !data) return [];
+
+  const grouped = new Map<string, { name: string; signedAt: string; drivers: number }>();
+  for (const row of data) {
+    const existing = grouped.get(row.booking_id);
+    if (!existing) {
+      grouped.set(row.booking_id, {
+        name: row.participant_name || 'Unknown',
+        signedAt: row.signed_at || '',
+        drivers: row.driver_number > 0 ? 1 : 0,
+      });
+    } else if (row.driver_number === 0 && row.participant_name) {
+      existing.name = row.participant_name;
+    } else if (row.driver_number > 0) {
+      existing.drivers++;
+    }
+  }
+
+  return Array.from(grouped.entries()).map(([id, v]) => ({
+    id,
+    participantName: v.name,
+    signedAt: v.signedAt,
+    driverCount: v.drivers,
+  }));
+}
+
 // ─── Reviews ───
 
 export async function getReviews(all: boolean = false): Promise<Review[]> {
