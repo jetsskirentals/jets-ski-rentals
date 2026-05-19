@@ -274,6 +274,12 @@ export async function POST(request: NextRequest) {
       sessionConfig.payment_intent_data = {
         setup_future_usage: 'off_session',
       };
+      const depositTotal = depositPerJetSki * jetSkiIds.length / 100;
+      sessionConfig.custom_text = {
+        submit: {
+          message: `A $${depositTotal.toFixed(0)} security deposit hold will also be placed on your card after payment. This is a hold only — not a charge — and will be released after your rental.`,
+        },
+      };
     }
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
