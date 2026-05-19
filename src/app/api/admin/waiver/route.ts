@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getWaiver } from '@/lib/db';
+import { getWaiver, getWaiversByBooking } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   // Check admin auth
@@ -16,9 +16,11 @@ export async function GET(request: NextRequest) {
   }
 
   const waiver = await getWaiver(bookingId);
-  if (!waiver) {
+  const waivers = await getWaiversByBooking(bookingId);
+
+  if (!waiver && waivers.length === 0) {
     return NextResponse.json({ error: 'No waiver found' }, { status: 404 });
   }
 
-  return NextResponse.json({ waiver });
+  return NextResponse.json({ waiver, waivers });
 }

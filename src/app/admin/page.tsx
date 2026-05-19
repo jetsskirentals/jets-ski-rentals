@@ -152,6 +152,8 @@ interface WaiverData {
   liabilityVideoPath?: string;
   safetySignaturePath?: string;
   guardianSignaturePath?: string;
+  driverNumber?: number;
+  participantName?: string;
 }
 interface Booking {
   id: string; jetSkiId: string; date: string; timeSlotId: string;
@@ -272,6 +274,7 @@ export default function AdminPage() {
   // Waiver viewer
   const [expandedWaivers, setExpandedWaivers] = useState<Set<string>>(new Set());
   const [loadedWaivers, setLoadedWaivers] = useState<Record<string, WaiverData>>({});
+  const [loadedWaiverGroups, setLoadedWaiverGroups] = useState<Record<string, WaiverData[]>>({});
 
   // Load waiver data from API when expanding
   const [waiverNotFound, setWaiverNotFound] = useState<Set<string>>(new Set());
@@ -283,8 +286,11 @@ export default function AdminPage() {
         const data = await res.json();
         if (data.waiver) {
           setLoadedWaivers(prev => ({ ...prev, [bookingId]: data.waiver }));
-          return;
         }
+        if (data.waivers?.length) {
+          setLoadedWaiverGroups(prev => ({ ...prev, [bookingId]: data.waivers }));
+        }
+        if (data.waiver || data.waivers?.length) return;
       }
       setWaiverNotFound(prev => new Set(prev).add(bookingId));
     } catch {
@@ -931,37 +937,151 @@ export default function AdminPage() {
                     <p className="text-gray-400 text-sm">No waiver-only check-ins yet.</p>
                   ) : (
                   <div className="space-y-2">
-                    {waiverSubmissions.map(ws => (
-                      <div key={ws.id} className="bg-white rounded-xl border border-green-200 p-4 flex items-center justify-between">
-                        <div>
-                          <span className="font-semibold text-gray-900">{ws.participantName}</span>
-                          {ws.driverCount > 0 && (
-                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                              +{ws.driverCount} driver{ws.driverCount > 1 ? 's' : ''}
+                    {waiverSubmissions.map(ws => {
+                      const isExp = expandedWaivers.has(ws.id);
+                      const allWaivers = loadedWaiverGroups[ws.id] || [];
+                      const primary = allWaivers.find(w => w.driverNumber === 0) || loadedWaivers[ws.id];
+                      const drivers = allWaivers.filter(w => w.driverNumber && w.driverNumber > 0);
+                      return (
+                      <div key={ws.id} className="bg-white rounded-xl border border-green-200 overflow-hidden">
+                        <div className="p-4 flex items-center justify-between">
+                          <div>
+                            <span className="font-semibold text-gray-900">{ws.participantName}</span>
+                            {ws.driverCount > 0 && (
+                              <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                +{ws.driverCount} driver{ws.driverCount > 1 ? 's' : ''}
+                              </span>
+                            )}
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {ws.signedAt ? format(parseISO(ws.signedAt), 'MMM d, yyyy h:mm a') : 'Unknown date'}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" /> Waiver Signed
                             </span>
-                          )}
-                          <div className="text-xs text-gray-400 mt-0.5">
-                            {ws.signedAt ? format(parseISO(ws.signedAt), 'MMM d, yyyy h:mm a') : 'Unknown date'}
+                            <button
+                              onClick={() => {
+                                const newSet = new Set(expandedWaivers);
+                                if (newSet.has(ws.id)) { newSet.delete(ws.id); } else { newSet.add(ws.id); loadWaiver(ws.id); }
+                                setExpandedWaivers(newSet);
+                              }}
+                              className="text-xs text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> View
+                              {isExp ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            </button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" /> Waiver Signed
-                          </span>
-                          <button
-                            onClick={() => {
-                              const newSet = new Set(expandedWaivers);
-                              if (newSet.has(ws.id)) { newSet.delete(ws.id); } else { newSet.add(ws.id); loadWaiver(ws.id); }
-                              setExpandedWaivers(newSet);
-                            }}
-                            className="text-xs text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1"
-                          >
-                            <Eye className="w-3.5 h-3.5" /> View
-                            {expandedWaivers.has(ws.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          </button>
-                        </div>
+
+                        {isExp && (() => {
+                          if (!primary && waiverNotFound.has(ws.id)) return <div className="border-t border-green-100 bg-green-50/30 p-4 text-sm text-gray-400">No waiver data found.</div>;
+                          if (!primary) return <div className="border-t border-green-100 bg-green-50/30 p-4 text-sm text-gray-400">Loading waiver data...</div>;
+
+                          const renderWaiverBlock = (w: WaiverData, label: string) => (
+                            <div className="border-t border-green-100 bg-green-50/30 p-4">
+                              <h4 className="text-sm font-semibold text-green-900 mb-3 flex items-center gap-1.5">
+                                <FileCheck className="w-4 h-4" /> {label}
+                              </h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                {w.participantName && (
+                                  <div>
+                                    <span className="text-gray-500 block text-xs mb-0.5">Name</span>
+                                    <span className="text-gray-900 font-medium">{w.participantName}</span>
+                                  </div>
+                                )}
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-0.5">Date of Birth</span>
+                                  <span className="text-gray-900 font-medium">{w.participantDOB}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-0.5">Address</span>
+                                  <span className="text-gray-900 font-medium">{w.participantAddress}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-0.5">Driver&apos;s License</span>
+                                  <span className="text-gray-900 font-medium">{w.driversLicenseId}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-0.5">Signed At</span>
+                                  <span className="text-gray-900 font-medium">{w.signedAt ? new Date(w.signedAt).toLocaleString() : 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-0.5">Photo/Video Opt-Out</span>
+                                  <span className="text-gray-900 font-medium">{w.photoVideoOptOut ? 'Yes — opted out' : 'No — consented'}</span>
+                                </div>
+                                {w.isMinor && (
+                                  <div>
+                                    <span className="text-gray-500 block text-xs mb-0.5">Minor Participant</span>
+                                    <span className="text-gray-900 font-medium">{w.minorName}, age {w.minorAge} (Guardian: {w.guardianName})</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-1.5">Signature</span>
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                    {w.signaturePath
+                                      ? <StorageImage path={w.signaturePath} alt="Signature" className="h-20 w-auto" />
+                                      : <span className="text-gray-400 text-xs">No signature captured</span>
+                                    }
+                                  </div>
+                                </div>
+                                {w.guardianSignaturePath && (
+                                  <div>
+                                    <span className="text-gray-500 block text-xs mb-1.5">Guardian Signature</span>
+                                    <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                      <StorageImage path={w.guardianSignaturePath} alt="Guardian signature" className="h-20 w-auto" />
+                                    </div>
+                                  </div>
+                                )}
+                                <div>
+                                  <span className="text-gray-500 block text-xs mb-1.5">Photo ID</span>
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                    {w.idPhotoPath
+                                      ? <StorageImage path={w.idPhotoPath} alt="Photo ID" />
+                                      : <span className="text-gray-400 text-xs">No ID photo</span>
+                                    }
+                                  </div>
+                                </div>
+                                {w.boaterIdPhotoPath && (
+                                  <div>
+                                    <span className="text-gray-500 block text-xs mb-1.5">Boater ID</span>
+                                    <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                      <StorageImage path={w.boaterIdPhotoPath} alt="Boater ID" />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {w.safetySignaturePath && (
+                                <div className="mt-4">
+                                  <span className="text-gray-500 block text-xs mb-1.5">Safety Briefing</span>
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                    <StorageImage path={w.safetySignaturePath} alt="Safety signature" className="h-16 w-auto" />
+                                  </div>
+                                </div>
+                              )}
+                              {w.liabilityVideoPath && (
+                                <div className="mt-4">
+                                  <span className="text-gray-500 block text-xs mb-1.5">Liability Video</span>
+                                  <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block max-w-md">
+                                    <StorageVideo path={w.liabilityVideoPath} />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+
+                          return (
+                            <>
+                              {renderWaiverBlock(primary, 'Primary Driver Waiver')}
+                              {drivers.map((dw, i) => renderWaiverBlock(dw, `Driver ${i + 2} Waiver`))}
+                            </>
+                          );
+                        })()}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   )}
                 </div>
