@@ -134,6 +134,11 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
   const [depositSignature, setDepositSignature] = useState('');
   const depositScrollRef = useRef<HTMLDivElement>(null);
 
+  // Clear error when navigating between steps
+  useEffect(() => {
+    setError('');
+  }, [step]);
+
   // Load inventory data
   useEffect(() => {
     fetch('/api/inventory')
@@ -455,6 +460,17 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
         driverWaivers.push(dw);
       }
 
+      // Verify uploads succeeded before submitting
+      if (!signaturePath) {
+        throw new Error('Signature upload failed. Please clear and re-sign your signature, then try again.');
+      }
+      if (!idPhotoPath) {
+        throw new Error('ID photo upload failed. Please re-upload your ID photo and try again.');
+      }
+      if (!boaterIdPath) {
+        throw new Error('Boater ID upload failed. Please re-upload your boater ID and try again.');
+      }
+
       setUploadProgress('Saving waiver...');
 
       const primaryWaiver = {
@@ -550,6 +566,17 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
         setUploadProgress(`Uploading Driver ${i + 2} files...`);
         const driverWaiver = await uploadDriverFiles(additionalDrivers[i], tempBookingId, i + 1);
         driverWaivers.push(driverWaiver);
+      }
+
+      // Verify uploads succeeded before submitting
+      if (!signaturePath) {
+        throw new Error('Signature upload failed. Please clear and re-sign your signature, then try again.');
+      }
+      if (!idPhotoPath) {
+        throw new Error('ID photo upload failed. Please re-upload your ID photo and try again.');
+      }
+      if (!boaterIdPath) {
+        throw new Error('Boater ID upload failed. Please re-upload your boater ID and try again.');
       }
 
       setUploadProgress(isGroupon ? 'Confirming your booking...' : 'Processing payment...');
@@ -978,11 +1005,26 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
             </div>
           </div>
 
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center">
+              {error}
+            </div>
+          )}
+
           <div className="flex justify-between mt-8">
             {!waiverOnly && <button onClick={() => setStep('time')} className="btn-secondary">Back</button>}
             {waiverOnly && <div />}
             <button
-              onClick={() => { setWaiverScrolledToBottom(false); setStep('waiver'); }}
+              onClick={() => {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(customerEmail)) {
+                  setError('Please enter a valid email address.');
+                  return;
+                }
+                setError('');
+                setWaiverScrolledToBottom(false);
+                setStep('waiver');
+              }}
               disabled={!customerName || !customerEmail || !customerPhone}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -1323,9 +1365,17 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
                     <span className="font-semibold text-brand-900">{d.driverName}</span>
                     <span className="text-sm text-green-600 ml-2">Driver {i + 2}</span>
                   </div>
-                  <span className="flex items-center gap-1 text-sm text-green-600 font-medium">
-                    <CheckCircle className="w-4 h-4" /> Waiver Complete
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-sm text-green-600 font-medium">
+                      <CheckCircle className="w-4 h-4" /> Complete
+                    </span>
+                    <button
+                      onClick={() => setAdditionalDrivers(prev => prev.filter((_, idx) => idx !== i))}
+                      className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1337,6 +1387,12 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
           >
             + Add a Driver
           </button>
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center">
+              {error}
+            </div>
+          )}
 
           <div className="flex justify-between mt-8">
             <button onClick={() => setStep('fwc')} className="btn-secondary">Back</button>
