@@ -916,13 +916,20 @@ export default function AdminPage() {
               )}
 
               {/* Waiver-Only Submissions */}
-              {waiverSubmissions.length > 0 && (
                 <div className="mt-10">
-                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                    <FileCheck className="w-5 h-5 text-green-600" />
-                    Waiver-Only Check-ins ({waiverSubmissions.length})
-                  </h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <FileCheck className="w-5 h-5 text-green-600" />
+                      Waiver-Only Check-ins ({waiverSubmissions.length})
+                    </h3>
+                    <button onClick={fetchAll} className="text-xs text-brand-600 hover:text-brand-800 font-medium px-3 py-1 rounded-lg border border-brand-200 hover:bg-brand-50">
+                      Refresh
+                    </button>
+                  </div>
                   <p className="text-sm text-gray-500 mb-4">Customers who completed waivers via /waiver (no online payment)</p>
+                  {waiverSubmissions.length === 0 ? (
+                    <p className="text-gray-400 text-sm">No waiver-only check-ins yet.</p>
+                  ) : (
                   <div className="space-y-2">
                     {waiverSubmissions.map(ws => (
                       <div key={ws.id} className="bg-white rounded-xl border border-green-200 p-4 flex items-center justify-between">
@@ -956,8 +963,8 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
-              )}
             </div>
           )}
 
