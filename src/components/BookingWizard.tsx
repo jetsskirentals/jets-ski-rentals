@@ -129,6 +129,9 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
   const [isDriverWaiverMode, setIsDriverWaiverMode] = useState(false);
   const [driverName, setDriverName] = useState('');
 
+  // Saved primary waiver data (preserved when adding drivers)
+  const [savedPrimaryWaiver, setSavedPrimaryWaiver] = useState<DriverWaiver | null>(null);
+
   // Deposit / livery waiver state (only shown if no insurance selected)
   const [depositScrolledToBottom, setDepositScrolledToBottom] = useState(false);
   const [depositSignature, setDepositSignature] = useState('');
@@ -326,6 +329,33 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
   };
 
   const startAddDriver = () => {
+    // Save primary waiver data before clearing fields for driver
+    if (!savedPrimaryWaiver) {
+      setSavedPrimaryWaiver({
+        driverName: customerName,
+        dob: waiverDOB,
+        address: waiverAddress,
+        licenseId: waiverLicenseId,
+        signature: waiverSignature,
+        idPhoto: waiverIdPhoto,
+        idPhotoFile: waiverIdPhotoFile,
+        boaterIdPhoto: waiverBoaterIdPhoto,
+        boaterIdPhotoFile: waiverBoaterIdPhotoFile,
+        liabilityVideo: waiverLiabilityVideo,
+        videoBlob,
+        photoOptOut: waiverPhotoOptOut,
+        isMinor: waiverIsMinor,
+        minorName: waiverMinorName,
+        minorAge: waiverMinorAge,
+        guardianSignature: waiverGuardianSignature,
+        guardianName: waiverGuardianName,
+        safetySignature: safetySignature,
+        safetyScrolled: safetyScrolledToBottom,
+        fwcComplete,
+        fwcSignature,
+        waiverScrolled: waiverScrolledToBottom,
+      });
+    }
     resetWaiverFields();
     setIsDriverWaiverMode(true);
     setWaiverScrolledToBottom(false);
@@ -487,34 +517,51 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
     try {
       const tempId = `wv-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`;
 
+      // Use saved primary waiver data if drivers were added (fields get cleared during driver flow)
+      const pw = savedPrimaryWaiver;
+      const pSignature = pw ? pw.signature : waiverSignature;
+      const pIdPhotoFile = pw ? pw.idPhotoFile : waiverIdPhotoFile;
+      const pBoaterIdPhotoFile = pw ? pw.boaterIdPhotoFile : waiverBoaterIdPhotoFile;
+      const pSafetySignature = pw ? pw.safetySignature : safetySignature;
+      const pVideoBlob = pw ? pw.videoBlob : videoBlob;
+      const pDOB = pw ? pw.dob : waiverDOB;
+      const pAddress = pw ? pw.address : waiverAddress;
+      const pLicenseId = pw ? pw.licenseId : waiverLicenseId;
+      const pPhotoOptOut = pw ? pw.photoOptOut : waiverPhotoOptOut;
+      const pIsMinor = pw ? pw.isMinor : waiverIsMinor;
+      const pMinorName = pw ? pw.minorName : waiverMinorName;
+      const pMinorAge = pw ? pw.minorAge : waiverMinorAge;
+      const pGuardianSignature = pw ? pw.guardianSignature : waiverGuardianSignature;
+      const pGuardianName = pw ? pw.guardianName : waiverGuardianName;
+
       setUploadProgress('Uploading ID photo...');
-      const idPhotoPath = waiverIdPhotoFile
-        ? await uploadFileToStorage(waiverIdPhotoFile, 'id-photo', tempId)
+      const idPhotoPath = pIdPhotoFile
+        ? await uploadFileToStorage(pIdPhotoFile, 'id-photo', tempId)
         : null;
 
       setUploadProgress('Uploading boater ID...');
-      const boaterIdPath = waiverBoaterIdPhotoFile
-        ? await uploadFileToStorage(waiverBoaterIdPhotoFile, 'boater-id', tempId)
+      const boaterIdPath = pBoaterIdPhotoFile
+        ? await uploadFileToStorage(pBoaterIdPhotoFile, 'boater-id', tempId)
         : null;
 
       setUploadProgress('Uploading signature...');
-      const signaturePath = waiverSignature
-        ? await uploadDataUrlToStorage(waiverSignature, 'signature', tempId)
+      const signaturePath = pSignature
+        ? await uploadDataUrlToStorage(pSignature, 'signature', tempId)
         : null;
 
-      const safetySignaturePath = safetySignature
-        ? await uploadDataUrlToStorage(safetySignature, 'safety-signature', tempId)
+      const safetySignaturePath = pSafetySignature
+        ? await uploadDataUrlToStorage(pSafetySignature, 'safety-signature', tempId)
         : null;
 
       let guardianSignaturePath: string | null = null;
-      if (waiverIsMinor && waiverGuardianSignature) {
-        guardianSignaturePath = await uploadDataUrlToStorage(waiverGuardianSignature, 'guardian-signature', tempId);
+      if (pIsMinor && pGuardianSignature) {
+        guardianSignaturePath = await uploadDataUrlToStorage(pGuardianSignature, 'guardian-signature', tempId);
       }
 
       let videoPath: string | null = null;
-      if (videoBlob) {
+      if (pVideoBlob) {
         setUploadProgress('Uploading liability video...');
-        videoPath = await uploadVideoToStorage(videoBlob, tempId);
+        videoPath = await uploadVideoToStorage(pVideoBlob, tempId);
       }
 
       // Verify primary uploads succeeded before uploading driver files
@@ -540,9 +587,9 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
       const primaryWaiver = {
         participantName: customerName,
         driverNumber: 0,
-        participantDOB: waiverDOB,
-        participantAddress: waiverAddress,
-        driversLicenseId: waiverLicenseId,
+        participantDOB: pDOB,
+        participantAddress: pAddress,
+        driversLicenseId: pLicenseId,
         signaturePath,
         idPhotoPath,
         boaterIdPhotoPath: boaterIdPath,
@@ -550,11 +597,11 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
         safetySignaturePath,
         guardianSignaturePath,
         safetyBriefingSignedAt: new Date().toISOString(),
-        photoVideoOptOut: waiverPhotoOptOut,
-        isMinor: waiverIsMinor,
-        minorName: waiverIsMinor ? waiverMinorName : undefined,
-        minorAge: waiverIsMinor ? waiverMinorAge : undefined,
-        guardianName: waiverIsMinor ? waiverGuardianName : undefined,
+        photoVideoOptOut: pPhotoOptOut,
+        isMinor: pIsMinor,
+        minorName: pIsMinor ? pMinorName : undefined,
+        minorAge: pIsMinor ? pMinorAge : undefined,
+        guardianName: pIsMinor ? pGuardianName : undefined,
         signedAt: new Date().toISOString(),
       };
 
@@ -591,37 +638,54 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
       // Generate a temporary booking ID for file uploads
       const tempBookingId = `bk-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`;
 
+      // Use saved primary waiver data if drivers were added (fields get cleared during driver flow)
+      const pw = savedPrimaryWaiver;
+      const pSignature = pw ? pw.signature : waiverSignature;
+      const pIdPhotoFile = pw ? pw.idPhotoFile : waiverIdPhotoFile;
+      const pBoaterIdPhotoFile = pw ? pw.boaterIdPhotoFile : waiverBoaterIdPhotoFile;
+      const pSafetySignature = pw ? pw.safetySignature : safetySignature;
+      const pVideoBlob = pw ? pw.videoBlob : videoBlob;
+      const pDOB = pw ? pw.dob : waiverDOB;
+      const pAddress = pw ? pw.address : waiverAddress;
+      const pLicenseId = pw ? pw.licenseId : waiverLicenseId;
+      const pPhotoOptOut = pw ? pw.photoOptOut : waiverPhotoOptOut;
+      const pIsMinor = pw ? pw.isMinor : waiverIsMinor;
+      const pMinorName = pw ? pw.minorName : waiverMinorName;
+      const pMinorAge = pw ? pw.minorAge : waiverMinorAge;
+      const pGuardianSignature = pw ? pw.guardianSignature : waiverGuardianSignature;
+      const pGuardianName = pw ? pw.guardianName : waiverGuardianName;
+
       // Upload files to storage
       setUploadProgress('Uploading ID photo...');
-      const idPhotoPath = waiverIdPhotoFile
-        ? await uploadFileToStorage(waiverIdPhotoFile, 'id-photo', tempBookingId)
+      const idPhotoPath = pIdPhotoFile
+        ? await uploadFileToStorage(pIdPhotoFile, 'id-photo', tempBookingId)
         : null;
 
       setUploadProgress('Uploading boater ID...');
-      const boaterIdPath = waiverBoaterIdPhotoFile
-        ? await uploadFileToStorage(waiverBoaterIdPhotoFile, 'boater-id', tempBookingId)
+      const boaterIdPath = pBoaterIdPhotoFile
+        ? await uploadFileToStorage(pBoaterIdPhotoFile, 'boater-id', tempBookingId)
         : null;
 
       setUploadProgress('Uploading waiver signature...');
-      const signaturePath = waiverSignature
-        ? await uploadDataUrlToStorage(waiverSignature, 'signature', tempBookingId)
+      const signaturePath = pSignature
+        ? await uploadDataUrlToStorage(pSignature, 'signature', tempBookingId)
         : null;
 
       setUploadProgress('Uploading safety signature...');
-      const safetySignaturePath = safetySignature
-        ? await uploadDataUrlToStorage(safetySignature, 'safety-signature', tempBookingId)
+      const safetySignaturePath = pSafetySignature
+        ? await uploadDataUrlToStorage(pSafetySignature, 'safety-signature', tempBookingId)
         : null;
 
       let guardianSignaturePath: string | null = null;
-      if (waiverIsMinor && waiverGuardianSignature) {
+      if (pIsMinor && pGuardianSignature) {
         setUploadProgress('Uploading guardian signature...');
-        guardianSignaturePath = await uploadDataUrlToStorage(waiverGuardianSignature, 'guardian-signature', tempBookingId);
+        guardianSignaturePath = await uploadDataUrlToStorage(pGuardianSignature, 'guardian-signature', tempBookingId);
       }
 
       let videoPath: string | null = null;
-      if (videoBlob) {
+      if (pVideoBlob) {
         setUploadProgress('Uploading liability video...');
-        videoPath = await uploadVideoToStorage(videoBlob, tempBookingId);
+        videoPath = await uploadVideoToStorage(pVideoBlob, tempBookingId);
       }
 
       // Verify primary uploads succeeded before uploading driver files
@@ -648,9 +712,9 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
       const primaryWaiver = {
         participantName: customerName,
         driverNumber: 0,
-        participantDOB: waiverDOB,
-        participantAddress: waiverAddress,
-        driversLicenseId: waiverLicenseId,
+        participantDOB: pDOB,
+        participantAddress: pAddress,
+        driversLicenseId: pLicenseId,
         signaturePath: signaturePath,
         idPhotoPath: idPhotoPath,
         boaterIdPhotoPath: boaterIdPath,
@@ -658,11 +722,11 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
         safetySignaturePath: safetySignaturePath,
         guardianSignaturePath: guardianSignaturePath,
         safetyBriefingSignedAt: new Date().toISOString(),
-        photoVideoOptOut: waiverPhotoOptOut,
-        isMinor: waiverIsMinor,
-        minorName: waiverIsMinor ? waiverMinorName : undefined,
-        minorAge: waiverIsMinor ? waiverMinorAge : undefined,
-        guardianName: waiverIsMinor ? waiverGuardianName : undefined,
+        photoVideoOptOut: pPhotoOptOut,
+        isMinor: pIsMinor,
+        minorName: pIsMinor ? pMinorName : undefined,
+        minorAge: pIsMinor ? pMinorAge : undefined,
+        guardianName: pIsMinor ? pGuardianName : undefined,
         signedAt: new Date().toISOString(),
       };
 
