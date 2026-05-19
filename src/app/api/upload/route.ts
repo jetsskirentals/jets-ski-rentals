@@ -7,13 +7,15 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const type = formData.get('type') as string;
     const bookingId = formData.get('bookingId') as string;
+    const customPath = formData.get('storagePath') as string || '';
     const driverNumber = parseInt(formData.get('driverNumber') as string || '0', 10) || 0;
 
     if (!file || !type || !bookingId) {
       return NextResponse.json({ error: 'Missing file, type, or bookingId' }, { status: 400 });
     }
 
-    // Validate file type
+    // Validate file type — strip any path prefix (e.g. "driver-1/signature" → "signature")
+    const baseType = type.includes('/') ? type.split('/').pop()! : type;
     const allowedTypes: Record<string, string[]> = {
       'id-photo': ['image/jpeg', 'image/png', 'image/webp'],
       'boater-id': ['image/jpeg', 'image/png', 'image/webp'],
@@ -22,13 +24,13 @@ export async function POST(request: NextRequest) {
       'guardian-signature': ['image/png', 'image/jpeg'],
     };
 
-    const allowed = allowedTypes[type];
+    const allowed = allowedTypes[baseType];
     if (!allowed) {
-      return NextResponse.json({ error: 'Invalid upload type' }, { status: 400 });
+      return NextResponse.json({ error: `Invalid upload type: ${baseType}` }, { status: 400 });
     }
 
     if (!allowed.includes(file.type)) {
-      return NextResponse.json({ error: `Invalid file type. Allowed: ${allowed.join(', ')}` }, { status: 400 });
+      return NextResponse.json({ error: `Invalid file type: ${file.type}. Allowed: ${allowed.join(', ')}` }, { status: 400 });
     }
 
     // Max 5MB for images
@@ -38,7 +40,8 @@ export async function POST(request: NextRequest) {
 
     const ext = file.name.split('.').pop() || 'jpg';
     const driverPrefix = driverNumber > 0 ? `driver-${driverNumber}/` : '';
-    const storagePath = `${bookingId}/${driverPrefix}${type}_${Date.now()}.${ext}`;
+    const pathType = customPath || type;
+    const storagePath = `${bookingId}/${driverPrefix}${pathType}_${Date.now()}.${ext}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const result = await uploadFile(storagePath, buffer, file.type);

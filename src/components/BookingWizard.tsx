@@ -368,28 +368,58 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
     };
   };
 
-  // Helper: upload a file via FormData to our upload API
+  // Convert data URL to Blob without fetch() — more reliable on mobile Safari
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const [meta, base64] = dataUrl.split(',');
+    const mimeMatch = meta.match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+    const binary = atob(base64);
+    const array = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      array[i] = binary.charCodeAt(i);
+    }
+    return new Blob([array], { type: mime });
+  };
+
+  // Helper: upload a file via FormData to our upload API (with retry)
   const uploadFileToStorage = async (file: File | Blob, type: string, bookingId: string): Promise<string | null> => {
+    // Strip driver prefix for the API type validation (e.g. "driver-1/signature" → "signature")
+    const apiType = type.includes('/') ? type.split('/').pop()! : type;
     const formData = new FormData();
-    const fileName = file instanceof File ? file.name : `${type}.${type === 'video' ? 'webm' : 'png'}`;
+    const fileName = file instanceof File ? file.name : `${apiType}.${apiType === 'video' ? 'webm' : 'png'}`;
     formData.append('file', file, fileName);
-    formData.append('type', type);
+    formData.append('type', apiType);
     formData.append('bookingId', bookingId);
-    try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.path || null;
-    } catch { return null; }
+    formData.append('storagePath', type);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error(`Upload failed (${type}, attempt ${attempt + 1}):`, err);
+          if (attempt === 0) continue;
+          return null;
+        }
+        const data = await res.json();
+        return data.path || null;
+      } catch (e) {
+        console.error(`Upload error (${type}, attempt ${attempt + 1}):`, e);
+        if (attempt === 0) continue;
+        return null;
+      }
+    }
+    return null;
   };
 
   // Helper: upload a data URL (signature) as a file
   const uploadDataUrlToStorage = async (dataUrl: string, type: string, bookingId: string): Promise<string | null> => {
     try {
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
+      const blob = dataUrlToBlob(dataUrl);
       return uploadFileToStorage(blob, type, bookingId);
-    } catch { return null; }
+    } catch (e) {
+      console.error('Data URL conversion failed:', e);
+      return null;
+    }
   };
 
   // Helper: upload video via presigned URL (bypasses Vercel body limits)
