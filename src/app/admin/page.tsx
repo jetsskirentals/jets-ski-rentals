@@ -778,7 +778,8 @@ export default function AdminPage() {
 
                         {/* Expanded waiver details */}
                         {isExpanded && (() => {
-                          const w = loadedWaivers[b.id] || b.waiver;
+                          const waiverGroup = loadedWaiverGroups[b.id];
+                          const w = loadedWaivers[b.id] || (waiverGroup?.length ? (waiverGroup.find(x => x.driverNumber === 0) || waiverGroup[0]) : null) || b.waiver;
                           if (!w && waiverNotFound.has(b.id)) return <div className="border-t border-gray-100 bg-purple-50/30 p-4 text-sm text-gray-400">No waiver data saved for this booking (booked before database was set up).</div>;
                           if (!w) return <div className="border-t border-gray-100 bg-purple-50/30 p-4 text-sm text-gray-400">Loading waiver data...</div>;
                           return (
@@ -912,6 +913,51 @@ export default function AdminPage() {
                                 )}
                               </div>
                             )}
+
+                            {/* Additional Drivers */}
+                            {waiverGroup && waiverGroup.filter(d => d.driverNumber > 0).map((d, i) => (
+                              <div key={i} className="mt-6 pt-4 border-t border-purple-200/50">
+                                <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-1.5">
+                                  <Users className="w-4 h-4" /> Additional Driver: {d.participantName || `Driver ${d.driverNumber}`}
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <span className="text-gray-500 block text-xs mb-0.5">Date of Birth</span>
+                                    <span className="text-gray-900 font-medium">{d.participantDOB}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 block text-xs mb-0.5">Address</span>
+                                    <span className="text-gray-900 font-medium">{d.participantAddress}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 block text-xs mb-0.5">Driver&apos;s License</span>
+                                    <span className="text-gray-900 font-medium">{d.driversLicenseId}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 block text-xs mb-0.5">Photo/Video Opt-Out</span>
+                                    <span className="text-gray-900 font-medium">{d.photoVideoOptOut ? 'Yes — opted out' : 'No — consented'}</span>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+                                  {d.signaturePath && (
+                                    <div>
+                                      <span className="text-gray-500 block text-xs mb-1.5">Signature</span>
+                                      <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                        <StorageImage path={d.signaturePath} alt="Driver signature" className="h-16 w-auto" />
+                                      </div>
+                                    </div>
+                                  )}
+                                  {d.boaterIdPhotoPath && (
+                                    <div>
+                                      <span className="text-gray-500 block text-xs mb-1.5">Boater ID</span>
+                                      <div className="bg-white rounded-lg border border-gray-200 p-2 inline-block">
+                                        <StorageImage path={d.boaterIdPhotoPath} alt="Boater ID" />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                           );
                         })()}
