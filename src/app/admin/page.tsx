@@ -915,10 +915,10 @@ export default function AdminPage() {
                             )}
 
                             {/* Additional Drivers */}
-                            {waiverGroup && waiverGroup.filter(d => d.driverNumber > 0).map((d, i) => (
+                            {waiverGroup && waiverGroup.filter(d => (d.driverNumber ?? 0) > 0).map((d, i) => (
                               <div key={i} className="mt-6 pt-4 border-t border-purple-200/50">
                                 <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-1.5">
-                                  <Users className="w-4 h-4" /> Additional Driver: {d.participantName || `Driver ${d.driverNumber}`}
+                                  <Users className="w-4 h-4" /> Additional Driver: {d.participantName || `Driver ${d.driverNumber ?? i + 1}`}
                                 </h4>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                   <div>
