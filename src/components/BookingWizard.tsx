@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isBefore, startOfToday, isWeekend, parseISO, addMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isBefore, startOfToday, isWeekend, parseISO, addMonths, addDays } from 'date-fns';
 import { ChevronLeft, ChevronRight, Clock, Waves, CheckCircle, Loader2, CreditCard, FileText, Upload, Camera, Anchor, ShieldCheck, Shield } from 'lucide-react';
 import { cn, formatTime } from '@/lib/utils';
 import SignaturePad from './SignaturePad';
@@ -166,17 +166,7 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
     fetch(`/api/bookings?date=${selectedDate}&jetSkiId=${jetSkiParam}&timeSlotId=${selectedSlot.id}&tzOffset=${tzOffset}&_t=${Date.now()}`)
       .then(r => r.json())
       .then(data => {
-        let times: string[] = data.availableTimes || [];
-        // Filter out past times if booking for today
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
-        if (selectedDate === todayStr) {
-          const now = new Date();
-          const nowMinutes = now.getHours() * 60 + now.getMinutes();
-          times = times.filter(t => {
-            const [h, m] = t.split(':').map(Number);
-            return h * 60 + m > nowMinutes;
-          });
-        }
+        const times: string[] = data.availableTimes || [];
         setAvailableTimes(times);
         setLoading(false);
       })
@@ -883,7 +873,7 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
               ))}
               {days.map((day) => {
                 const dateStr = format(day, 'yyyy-MM-dd');
-                const isPast = isBefore(day, today);
+                const isPast = isBefore(day, addDays(today, 1));
                 const isSelected = dateStr === selectedDate;
                 const isWeekendDay = isWeekend(day);
 
@@ -913,14 +903,13 @@ export default function BookingWizard({ isGroupon = false, waiverOnly = false }:
                 Selected
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded border-2 border-brand-300" />
-                Today
-              </div>
-              <div className="flex items-center gap-1">
                 <span className="text-sunset-600 font-bold">$</span>
                 Weekend pricing
               </div>
             </div>
+            <p className="text-xs text-brand-600/50 mt-2 text-center">
+              Bookings must be made at least 1 day in advance. Same-day bookings are not available.
+            </p>
           </div>
 
           <div className="flex justify-end mt-8">

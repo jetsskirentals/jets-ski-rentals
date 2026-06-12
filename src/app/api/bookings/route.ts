@@ -68,6 +68,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
+  // Reject same-day bookings (must book at least 1 day in advance)
+  if (!isManual) {
+    const today = new Date().toISOString().split('T')[0];
+    if (date <= today) {
+      return NextResponse.json({ error: 'Bookings must be made at least 1 day in advance. Same-day bookings are not available.' }, { status: 400 });
+    }
+  }
+
   const slots = await getTimeSlots();
   const slot = slots.find(ts => ts.id === timeSlotId);
   if (!slot) return NextResponse.json({ error: 'Invalid time slot' }, { status: 400 });
